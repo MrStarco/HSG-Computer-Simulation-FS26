@@ -1,0 +1,155 @@
+breed [employees employee]
+
+globals [
+  true-misconduct-total
+  sanctioned-misconduct-total
+  reported-events-total
+  retaliation-events-total
+  hidden-misconduct-rate
+  hidden-misconduct-total
+  true-misconduct-this-tick
+  sanctioned-this-tick
+]
+
+employees-own [
+  utility
+  misconduct-propensity
+  fear
+  committed-this-tick?
+]
+
+to setup
+  clear-all
+  set true-misconduct-total 0
+  set sanctioned-misconduct-total 0
+  set reported-events-total 0
+  set retaliation-events-total 0
+  set hidden-misconduct-rate 0
+  set hidden-misconduct-total 0
+  set true-misconduct-this-tick 0
+  set sanctioned-this-tick 0
+
+  create-employees number-employees [
+    setxy random-xcor random-ycor
+    set shape "person"
+    set size 1.1
+    set utility 0
+    set misconduct-propensity clamp01 (random-normal initial-misconduct-propensity 0.08)
+    set fear clamp01 (random-normal initial-fear 0.08)
+    set committed-this-tick? false
+    recolor-from-fear
+  ]
+  reset-ticks
+end
+
+to go
+  if not any? employees [ stop ]
+
+  set true-misconduct-this-tick 0
+  set sanctioned-this-tick 0
+
+  move-employees
+  misconduct-phase
+  observation-and-reporting-phase
+  drift-phase
+  update-metrics
+  tick
+end
+
+to move-employees
+  ask employees [
+    rt random 50
+    lt random 50
+    fd 1
+  ]
+end
+
+to misconduct-phase
+  ask employees [
+    set committed-this-tick? false
+    if random-float 1 < misconduct-propensity [
+      set committed-this-tick? true
+      set true-misconduct-this-tick true-misconduct-this-tick + 1
+      set true-misconduct-total true-misconduct-total + 1
+      set utility utility + misconduct-gain
+    ]
+  ]
+end
+
+to observation-and-reporting-phase
+  ask employees with [committed-this-tick?] [
+    let offender self
+    let witnesses other employees in-radius observation-radius
+    if any? witnesses [
+      let observer one-of witnesses
+      ask observer [ decide-report offender ]
+    ]
+  ]
+end
+
+to decide-report [offender]
+  let reporting-input (base-reporting-climate + (0.8 * reporter-protection) - fear + (0.2 * [misconduct-propensity] of offender))
+  let reporting-prob logistic reporting-input
+
+  if random-float 1 < reporting-prob [
+    set reported-events-total reported-events-total + 1
+
+    let sanction-prob clamp01 (0.15 + (0.75 * enforcement-strictness))
+    ifelse random-float 1 < sanction-prob
+    [
+      set sanctioned-this-tick sanctioned-this-tick + 1
+      set sanctioned-misconduct-total sanctioned-misconduct-total + 1
+      ask offender [
+        set utility utility - (sanction-cost * enforcement-strictness)
+        set misconduct-propensity clamp01 (misconduct-propensity - (learning-rate * 0.8))
+      ]
+    ]
+    [
+      ask offender [
+        set misconduct-propensity clamp01 (misconduct-propensity + (learning-rate * 0.3))
+      ]
+    ]
+
+    let retaliation-prob clamp01 (retaliation-base-chance * (1 - reporter-protection) * (0.5 + enforcement-strictness))
+    if random-float 1 < retaliation-prob [
+      set retaliation-events-total retaliation-events-total + 1
+      set fear clamp01 (fear + (0.15 * (1 - reporter-protection)))
+      set utility utility - retaliation-cost
+      ask offender [ set color red ]
+    ]
+  ]
+end
+
+to drift-phase
+  ask employees [
+    if not committed-this-tick? [
+      set misconduct-propensity clamp01 (misconduct-propensity + (learning-rate * (initial-misconduct-propensity - misconduct-propensity)))
+    ]
+    set fear clamp01 (fear + (0.05 * retaliation-base-chance * (1 - reporter-protection)))
+    set committed-this-tick? false
+    recolor-from-fear
+  ]
+end
+
+to recolor-from-fear
+  ifelse fear < 0.33
+  [ set color green + 1 ]
+  [ ifelse fear < 0.66
+    [ set color yellow - 2 ]
+    [ set color orange + 1 ] ]
+end
+
+to update-metrics
+  set hidden-misconduct-total (true-misconduct-total - sanctioned-misconduct-total)
+  ifelse true-misconduct-total > 0
+  [ set hidden-misconduct-rate (hidden-misconduct-total / true-misconduct-total) ]
+  [ set hidden-misconduct-rate 0 ]
+end
+
+to-report clamp01 [x]
+  report max (list 0 (min (list 1 x)))
+end
+
+to-report logistic [x]
+  report 1 / (1 + exp (- x))
+end
