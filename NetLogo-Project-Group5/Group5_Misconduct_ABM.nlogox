@@ -219,14 +219,13 @@ to-report logistic [x]
 end]]></code>
   <widgets>
     <view x="240" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-16" height="520" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="520" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
-    <button x="20" y="20" height="33" disableUntilTicks="false" forever="false" kind="Observer" display="setup" width="75" sizeVersion="0">setup</button>
     <button x="105" y="20" height="33" disableUntilTicks="false" forever="true" kind="Observer" display="go" width="75" sizeVersion="0">go</button>
     <slider x="20" step="10" y="80" max="400" display="number-employees" height="33" min="20" direction="Horizontal" default="150.0" variable="number-employees" width="200" sizeVersion="0"></slider>
     <slider x="20" step="0.01" y="118" max="1" display="initial-misconduct-propensity" height="33" min="0" direction="Horizontal" default="0.25" variable="initial-misconduct-propensity" width="200" sizeVersion="0"></slider>
-    <slider x="20" step="0.01" y="156" max="1" display="initial-fear" height="33" min="0" direction="Horizontal" default="0.35" variable="initial-fear" width="200" sizeVersion="0"></slider>
-    <slider x="20" step="0.01" y="194" max="1" display="punishment-value" height="33" min="0" direction="Horizontal" default="0.7" variable="punishment-value" width="200" sizeVersion="0"></slider>
-    <slider x="20" step="0.01" y="232" max="1" display="reporter-protection" height="33" min="0" direction="Horizontal" default="0.45" variable="reporter-protection" width="200" sizeVersion="0"></slider>
-    <slider x="20" step="0.01" y="270" max="1" display="learning-rate" height="33" min="0" direction="Horizontal" default="0.2" variable="learning-rate" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="156" max="1" display="initial-fear" height="33" min="0" direction="Horizontal" default="0.66" variable="initial-fear" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="194" max="1" display="punishment-value" height="33" min="0" direction="Horizontal" default="0.91" variable="punishment-value" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="232" max="1" display="reporter-protection" height="33" min="0" direction="Horizontal" default="0.25" variable="reporter-protection" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="270" max="1" display="learning-rate" height="33" min="0" direction="Horizontal" default="0.1" variable="learning-rate" width="200" sizeVersion="0"></slider>
     <monitor x="780" precision="17" y="20" height="45" fontSize="11" display="True misconduct (total)" width="200" sizeVersion="0">true-misconduct-total</monitor>
     <monitor x="780" precision="17" y="70" height="45" fontSize="11" display="Sanctioned misconduct (total)" width="200" sizeVersion="0">sanctioned-misconduct-total</monitor>
     <monitor x="780" precision="17" y="120" height="45" fontSize="11" display="Hidden misconduct (total)" width="200" sizeVersion="0">hidden-misconduct-total</monitor>
@@ -234,11 +233,6 @@ end]]></code>
     <monitor x="780" precision="17" y="220" height="45" fontSize="11" display="Reported events (total)" width="200" sizeVersion="0">reported-events-total</monitor>
     <monitor x="780" precision="17" y="270" height="45" fontSize="11" display="Retaliation events (total)" width="200" sizeVersion="0">retaliation-events-total</monitor>
     <monitor x="780" precision="17" y="320" height="45" fontSize="11" display="True misconduct (tick)" width="200" sizeVersion="0">true-misconduct-this-tick</monitor>
-    <monitor x="780" precision="17" y="370" height="45" fontSize="11" display="Sanctioned misconduct (tick)" width="200" sizeVersion="0">sanctioned-this-tick</monitor>
-    <monitor x="780" precision="17" y="420" height="45" fontSize="11" display="Reported events (tick)" width="200" sizeVersion="0">reported-events-this-tick</monitor>
-    <monitor x="780" precision="17" y="470" height="45" fontSize="11" display="Retaliation events (tick)" width="200" sizeVersion="0">retaliation-events-this-tick</monitor>
-    <monitor x="780" precision="17" y="520" height="45" fontSize="11" display="Hidden misconduct (tick)" width="200" sizeVersion="0">hidden-misconduct-this-tick</monitor>
-    <monitor x="780" precision="3" y="570" height="45" fontSize="11" display="Hidden misconduct rate (tick)" width="200" sizeVersion="0">hidden-misconduct-rate-this-tick</monitor>
     <monitor x="780" precision="1" y="620" height="45" fontSize="11" display="Relative change (%)" width="200" sizeVersion="0">relative-misconduct-change</monitor>
     <plot x="987" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="events" y="9" xMin="0.0" height="221" legend="true" xMax="10.0" yMin="0.0" xAxis="ticks" display="Misconduct Dynamics (Cumulative)" width="454" sizeVersion="0">
       <setup></setup>
@@ -284,6 +278,12 @@ end]]></code>
         <update>plot (true-misconduct-this-tick - sanctioned-this-tick)</update>
       </pen>
     </plot>
+    <monitor x="780" precision="3" y="470" height="45" fontSize="11" display="Hidden misconduct rate (tick)" width="200" sizeVersion="0">hidden-misconduct-rate-this-tick</monitor>
+    <monitor x="780" precision="17" y="520" height="45" fontSize="11" display="Reported events (tick)" width="200" sizeVersion="0">reported-events-this-tick</monitor>
+    <monitor x="780" precision="17" y="570" height="45" fontSize="11" display="Retaliation events (tick)" width="200" sizeVersion="0">retaliation-events-this-tick</monitor>
+    <monitor x="780" precision="17" y="420" height="45" fontSize="11" display="Hidden misconduct (tick)" width="200" sizeVersion="0">hidden-misconduct-this-tick</monitor>
+    <monitor x="780" precision="17" y="370" height="45" fontSize="11" display="Sanctioned misconduct (tick)" width="200" sizeVersion="0">sanctioned-this-tick</monitor>
+    <button x="20" y="20" height="33" disableUntilTicks="false" forever="false" kind="Observer" display="setup" width="75" sizeVersion="0">setup</button>
   </widgets>
   <info>## WHAT IS IT?
 
