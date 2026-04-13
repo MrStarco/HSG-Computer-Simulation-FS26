@@ -18,7 +18,7 @@ Each tick represents one abstract time period inside the organisation.
 Employees move randomly within their local neighbourhood. This changes who can observe whom, introducing natural variation in observation opportunities.
 
 **2. Misconduct Decision**
-Each employee commits misconduct with a probability equal to their individual `misconduct-propensity`. This is a Bernoulli draw each tick. If misconduct occurs, the employee gains `misconduct-gain` utility.
+Each employee commits misconduct with a probability equal to their individual `misconduct-propensity`. This is a Bernoulli draw each tick. If misconduct occurs, the employee gains a fixed utility value of 1.4.
 
 **3. Observation**
 Employees who committed misconduct are observed by coworkers within a fixed radius of 3 patches (hardcoded). A single random witness is selected per offender.
@@ -31,7 +31,7 @@ The witness decides whether to report using a logistic function:
 Higher protection and lower fear increase reporting probability. The constant 0.1 reflects a slightly positive baseline climate (hardcoded).
 
 **5. Sanctioning — Automatic, Strength-Variable**
-Every reported case is sanctioned without exception. The `punishment-value` slider controls only the *strength* of the sanction: how much the offender's misconduct propensity drops.
+Every reported case is sanctioned without exception. The `punishment-value` slider controls the strength of the sanction: how much the offender's misconduct propensity drops.
 
 `propensity_drop = learning-rate × (0.3 + 0.7 × punishment-value)`
 
@@ -44,9 +44,9 @@ After every report, retaliation against the reporter occurs with probability:
 
 When retaliation happens, the reporter's fear increases:
 
-`fear_increase = learning-rate × 0.5 × (1 − reporter-protection)`
+`fear_increase = learning-rate × (0.2 + 0.8 × punishment-value) × (1 − reporter-protection)`
 
-Both the probability and the fear impact therefore fall as protection rises. Retaliation costs the reporter 1.2 utility units (hardcoded).
+Probability falls as protection rises. Retaliation severity rises with `punishment-value` and falls with `reporter-protection`. Retaliation costs the reporter 1.2 utility units (hardcoded).
 
 **7. Drift and Fear Decay**
 In each tick's drift phase two things happen for every employee:
@@ -72,7 +72,7 @@ Because every reported case is sanctioned, hidden misconduct equals *unreported*
 1. Click **setup** to initialise the population.
 2. Click **go** (forever button) to run continuously.
 3. Adjust the two main policy levers:
-   - `punishment-value` — strength of sanction on offender propensity
+   - `punishment-value` — sanction strength and retaliation severity
    - `reporter-protection` — reduces retaliation probability and fear accumulation
 4. Observe the three plots and the monitors.
 
@@ -85,7 +85,6 @@ Because every reported case is sanctioned, hidden misconduct equals *unreported*
 | initial-fear | 0.35 |
 | punishment-value | 0.70 |
 | reporter-protection | 0.45 |
-| misconduct-gain | 1.4 |
 | learning-rate | 0.20 |
 
 ---
@@ -107,16 +106,20 @@ Shows the percentage change in true misconduct from the previous tick, like a st
 
 | Monitor | What it tells you |
 |---|---|
-| Hidden misconduct rate | The core policy outcome: share of misconduct that stays invisible |
-| Retaliation events | Proxy for chilling effect on reporters |
+| Hidden misconduct rate (total) | The core policy outcome: share of misconduct that stays invisible over the full run |
+| Retaliation events (total) | Total retaliation load over the full run |
+| Reported events (tick) | Real-time number of reports in the current period |
+| Retaliation events (tick) | Real-time retaliation load in the current period |
 | True misconduct (tick) | Real-time pulse of misconduct activity |
+| Hidden misconduct (tick) | Unseen misconduct in the current period (`true - sanctioned`) |
+| Hidden misconduct rate (tick) | Share of current-period misconduct that stayed hidden |
 | Relative change (%) | Momentum: is misconduct currently growing or shrinking? |
 
 ---
 
 ## THINGS TO NOTICE
 
-- Increasing `punishment-value` alone does not necessarily reduce true misconduct. If `reporter-protection` is low, retaliation events accumulate, fear rises, and reporting drops — hidden misconduct can grow even when the sanction rate looks stable.
+- Increasing `punishment-value` alone does not necessarily reduce true misconduct. Stronger punishment also intensifies retaliation severity after reporting, so low `reporter-protection` can still push fear up and suppress reporting.
 - `reporter-protection` operates on two channels simultaneously: it raises reporting probability *and* reduces both the probability and severity of retaliation. It is the more powerful single lever in this model.
 - Agents start mostly green or yellow (low/moderate fear). Orange agents only appear after repeated retaliation experiences. If fear is high at baseline and agents are already orange at tick 1, lower `initial-fear` or raise `reporter-protection`.
 - The per-tick plot is noisy by design — it reflects the stochastic nature of individual decisions. Smooth trends are only visible over many ticks.
@@ -148,6 +151,7 @@ The following parameters are fixed in the code and not exposed as sliders:
 | BASE-REPORTING-CLIMATE | 0.1 | Baseline logit offset for reporting — slightly positive culture |
 | OBSERVATION-RADIUS | 3 patches | Fixed neighbourhood for witness selection |
 | RETALIATION-COST | 1.2 utility units | Fixed utility penalty for a retaliated reporter |
+| MISCONDUCT-GAIN | 1.4 utility units | Fixed utility gain for a misconduct event |
 
 ---
 

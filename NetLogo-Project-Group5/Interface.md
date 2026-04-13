@@ -46,13 +46,7 @@ Dieses Dokument beschreibt alle Widgets, die fuer das Modell benoetigt werden, p
    - Increment: `0.01`
    - Default: `0.45`
 
-6. `misconduct-gain`
-   - Min: `0`
-   - Max: `5`
-   - Increment: `0.1`
-   - Default: `1.4`
-
-7. `learning-rate`
+6. `learning-rate`
    - Min: `0`
    - Max: `1`
    - Increment: `0.01`
@@ -69,23 +63,36 @@ Dieses Dokument beschreibt alle Widgets, die fuer das Modell benoetigt werden, p
 3. `Hidden misconduct (total)`
    - Reporter: `hidden-misconduct-total`
 
-4. `Hidden misconduct rate`
+4. `Hidden misconduct rate (total)`
    - Reporter: `hidden-misconduct-rate`
    - Decimal places: `3`
 
-5. `Reported events`
+5. `Reported events (total)`
    - Reporter: `reported-events-total`
 
-6. `Retaliation events`
+6. `Retaliation events (total)`
    - Reporter: `retaliation-events-total`
 
 7. `True misconduct (tick)`
    - Reporter: `true-misconduct-this-tick`
 
-8. `Sanctioned (tick)`
+8. `Sanctioned misconduct (tick)`
    - Reporter: `sanctioned-this-tick`
 
-9. `Relative change (%)`
+9. `Reported events (tick)`
+   - Reporter: `reported-events-this-tick`
+
+10. `Retaliation events (tick)`
+   - Reporter: `retaliation-events-this-tick`
+
+11. `Hidden misconduct (tick)`
+   - Reporter: `hidden-misconduct-this-tick`
+
+12. `Hidden misconduct rate (tick)`
+   - Reporter: `hidden-misconduct-rate-this-tick`
+   - Decimal places: `3`
+
+13. `Relative change (%)`
    - Reporter: `relative-misconduct-change`
    - Decimal places: `1`
 
@@ -124,6 +131,7 @@ Diese Werte sind fest im Modellcode hinterlegt und erscheinen deshalb nicht als 
 - `BASE-REPORTING-CLIMATE = 0.1`
 - `OBSERVATION-RADIUS = 3`
 - `RETALIATION-COST = 1.2`
+- `MISCONDUCT-GAIN = 1.4`
 
 ## 3) Manuelle Einrichtung in NetLogo
 

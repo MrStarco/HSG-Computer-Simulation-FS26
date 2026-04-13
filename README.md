@@ -35,7 +35,7 @@ Dieses Verzeichnis enthaelt ein lauffaehiges Kernmodell fuer euer Thema **Report
 
 ## Typische Team-Experimente
 
-- `enforcement-strictness` erhoehen/senken und auf `hidden-misconduct-rate` achten.
+- `punishment-value` erhoehen/senken und auf `hidden-misconduct-rate` achten.
 - `reporter-protection` variieren und Effekte auf Reporting/Retaliation beobachten.
 - Mehrere Runs mit gleichen Einstellungen vergleichen (stochastisches Modell).
 

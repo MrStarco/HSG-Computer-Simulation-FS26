@@ -24,6 +24,10 @@ Jeder `employee` besitzt:
 - `hidden-misconduct-rate`
 - `true-misconduct-this-tick`
 - `sanctioned-this-tick`
+- `reported-events-this-tick`
+- `retaliation-events-this-tick`
+- `hidden-misconduct-this-tick`
+- `hidden-misconduct-rate-this-tick`
 - `true-misconduct-prev-tick`
 - `relative-misconduct-change`
 
@@ -39,6 +43,7 @@ Diese Werte sind fest im Code hinterlegt:
 - `BASE-REPORTING-CLIMATE = 0.1`
 - `OBSERVATION-RADIUS = 3`
 - `RETALIATION-COST = 1.2`
+- `MISCONDUCT-GAIN = 1.4`
 
 ## 3) Tick-Ablauf (in Reihenfolge)
 
@@ -75,7 +80,7 @@ Bei Commit:
 
 - `true-misconduct-this-tick += 1`
 - `true-misconduct-total += 1`
-- `utility_i += misconduct-gain`
+- `utility_i += 1.4`
 
 ### 3.3 Beobachtung und Reporting
 
@@ -122,7 +127,7 @@ Wenn Retaliation eintritt (beim Beobachter `k`):
 
 - `retaliation-events-total += 1`
 - `retaliated-this-tick? = true`
-- `fear_k = clamp01(fear_k + learning-rate * 0.5 * (1 - reporter-protection))`
+- `fear_k = clamp01(fear_k + learning-rate * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))`
 - `utility_k -= 1.2`
 
 ### 3.6 Drift-Phase
@@ -159,6 +164,14 @@ Relative Tick-zu-Tick-Aenderung:
 - sonst:
   - `relative-misconduct-change = 0`
 
+Tick-basierte Hidden-Misconduct-Kennzahlen:
+
+- `hidden-misconduct-this-tick = true-misconduct-this-tick - sanctioned-this-tick`
+- Wenn `true-misconduct-this-tick > 0`:
+  - `hidden-misconduct-rate-this-tick = hidden-misconduct-this-tick / true-misconduct-this-tick`
+- sonst:
+  - `hidden-misconduct-rate-this-tick = 0`
+
 ## 4) Slider -> Formel -> Wirkung
 
 | Slider | Direkter mathematischer Ort | Haupteffekt |
@@ -166,9 +179,8 @@ Relative Tick-zu-Tick-Aenderung:
 | `number-employees` | Populationsgroesse `N` | Mehr Agenten erzeugen mehr potenzielle Ereignisse pro Tick |
 | `initial-misconduct-propensity` | Startwert von `m_i`; Zielwert der Mean-Reversion | Hoeheres langfristiges Baseline-Niveau fuer Fehlverhalten |
 | `initial-fear` | Startwert von `fear_i` | Niedrigere Anfangs-Reportingbereitschaft bei hohem Wert |
-| `punishment-value` | Absenkung von `misconduct-propensity` nach Sanktion | Staerkere Reduktion der Offender-Neigung bei hohem Wert |
+| `punishment-value` | Absenkung von `misconduct-propensity` nach Sanktion und Fear-Anstieg bei Retaliation | Hoehere Sanktionsstaerke und staerkere Retaliation bei hohem Wert |
 | `reporter-protection` | Reporting-Input, `p_ret`, Fear-Anstieg bei Retaliation | Mehr Reporting und weniger Retaliation/Fear-Anstieg |
-| `misconduct-gain` | `utility += misconduct-gain` bei Commit | Erhoeht unmittelbaren Nutzen aus Fehlverhalten |
 | `learning-rate` | Updates von Propensity und Fear | Steuert Geschwindigkeit aller Anpassungsprozesse |
 
 ## 5) Dynamik ueber viele Ticks (Intuition)
@@ -187,7 +199,7 @@ Durch `p_report = logistic(x_report)` wirken kleine Aenderungen in `x_report` be
 
 Fear bewegt sich in beide Richtungen:
 
-- nach oben bei Retaliation (eventbasiert),
+- nach oben bei Retaliation (eventbasiert; staerker bei hohem `punishment-value`),
 - nach unten ohne Retaliation (langsamer Decay).
 
 Damit entsteht eine realistischere Erholungsdynamik statt dauerhaftem Drift nach oben.

@@ -7,18 +7,18 @@
 ;;   BASE-REPORTING-CLIMATE  = 0.1
 ;;   OBSERVATION-RADIUS      = 3
 ;;   RETALIATION-COST        = 1.2
+;;   MISCONDUCT-GAIN         = 1.4
 ;;
 ;; Removed sliders:
 ;;   base-reporting-climate, observation-radius,
-;;   retaliation-base-chance, sanction-cost, retaliation-cost
-;;
-;; Renamed slider:
-;;   enforcement-strictness  ->  punishment-value
+;;   retaliation-base-chance, sanction-cost, retaliation-cost,
+;;   misconduct-gain
 ;;
 ;; Key behaviour changes:
 ;;   - Sanctioning is AUTOMATIC on every report (no probability gate)
 ;;   - punishment-value controls STRENGTH of propensity drop only
 ;;   - Retaliation probability = (1 - reporter-protection)
+;;   - Retaliation strength increases with punishment-value
 ;;   - Fear COUPLED with learning-rate: rises on retaliation, decays
 ;;     slowly every tick without retaliation  (no more global drift)
 ;;   - Two new plots: Per Tick Dynamics + Relative Change (%)
@@ -35,6 +35,10 @@ globals [
   hidden-misconduct-total
   true-misconduct-this-tick
   sanctioned-this-tick
+  reported-events-this-tick
+  retaliation-events-this-tick
+  hidden-misconduct-this-tick
+  hidden-misconduct-rate-this-tick
   true-misconduct-prev-tick
   relative-misconduct-change
 ]
@@ -57,6 +61,10 @@ to setup
   set hidden-misconduct-total     0
   set true-misconduct-this-tick   0
   set sanctioned-this-tick        0
+  set reported-events-this-tick   0
+  set retaliation-events-this-tick 0
+  set hidden-misconduct-this-tick 0
+  set hidden-misconduct-rate-this-tick 0
   set true-misconduct-prev-tick   0
   set relative-misconduct-change  0
 
@@ -80,6 +88,10 @@ to go
   set true-misconduct-prev-tick true-misconduct-this-tick
   set true-misconduct-this-tick 0
   set sanctioned-this-tick      0
+  set reported-events-this-tick 0
+  set retaliation-events-this-tick 0
+  set hidden-misconduct-this-tick 0
+  set hidden-misconduct-rate-this-tick 0
 
   move-employees
   misconduct-phase
@@ -105,7 +117,7 @@ to misconduct-phase
       set committed-this-tick? true
       set true-misconduct-this-tick true-misconduct-this-tick + 1
       set true-misconduct-total     true-misconduct-total     + 1
-      set utility utility + misconduct-gain
+      set utility utility + 1.4      ;; MISCONDUCT-GAIN (hardcoded)
     ]
   ]
 end
@@ -130,6 +142,7 @@ to decide-report [offender]
 
   if random-float 1 < reporting-prob [
     set reported-events-total reported-events-total + 1
+    set reported-events-this-tick reported-events-this-tick + 1
 
     ;; SANCTIONING: automatic – punishment-value = strength only
     set sanctioned-this-tick        sanctioned-this-tick        + 1
@@ -141,11 +154,14 @@ to decide-report [offender]
     ]
 
     ;; RETALIATION: probability = (1 - reporter-protection)
+    ;; Retaliation strength rises with punishment-value
     let retaliation-prob clamp01 (1 - reporter-protection)
     if random-float 1 < retaliation-prob [
       set retaliation-events-total retaliation-events-total + 1
+      set retaliation-events-this-tick retaliation-events-this-tick + 1
       set retaliated-this-tick? true
-      set fear clamp01 (fear + learning-rate * 0.5 * (1 - reporter-protection))
+      set fear clamp01 (fear
+        + learning-rate * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))
       set utility utility - 1.2
     ]
   ]
@@ -176,6 +192,12 @@ to recolor-from-fear
 end
 
 to update-metrics
+  set hidden-misconduct-this-tick (true-misconduct-this-tick - sanctioned-this-tick)
+  ifelse true-misconduct-this-tick > 0
+  [ set hidden-misconduct-rate-this-tick
+      hidden-misconduct-this-tick / true-misconduct-this-tick ]
+  [ set hidden-misconduct-rate-this-tick 0 ]
+
   set hidden-misconduct-total (true-misconduct-total - sanctioned-misconduct-total)
   ifelse true-misconduct-total > 0
   [ set hidden-misconduct-rate hidden-misconduct-total / true-misconduct-total ]
@@ -204,17 +226,20 @@ end]]></code>
     <slider x="20" step="0.01" y="156" max="1" display="initial-fear" height="33" min="0" direction="Horizontal" default="0.35" variable="initial-fear" width="200" sizeVersion="0"></slider>
     <slider x="20" step="0.01" y="194" max="1" display="punishment-value" height="33" min="0" direction="Horizontal" default="0.7" variable="punishment-value" width="200" sizeVersion="0"></slider>
     <slider x="20" step="0.01" y="232" max="1" display="reporter-protection" height="33" min="0" direction="Horizontal" default="0.45" variable="reporter-protection" width="200" sizeVersion="0"></slider>
-    <slider x="20" step="0.1" y="270" max="5" display="misconduct-gain" height="33" min="0" direction="Horizontal" default="1.4" variable="misconduct-gain" width="200" sizeVersion="0"></slider>
-    <slider x="20" step="0.01" y="308" max="1" display="learning-rate" height="33" min="0" direction="Horizontal" default="0.2" variable="learning-rate" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="270" max="1" display="learning-rate" height="33" min="0" direction="Horizontal" default="0.2" variable="learning-rate" width="200" sizeVersion="0"></slider>
     <monitor x="780" precision="17" y="20" height="45" fontSize="11" display="True misconduct (total)" width="200" sizeVersion="0">true-misconduct-total</monitor>
     <monitor x="780" precision="17" y="70" height="45" fontSize="11" display="Sanctioned misconduct (total)" width="200" sizeVersion="0">sanctioned-misconduct-total</monitor>
     <monitor x="780" precision="17" y="120" height="45" fontSize="11" display="Hidden misconduct (total)" width="200" sizeVersion="0">hidden-misconduct-total</monitor>
-    <monitor x="780" precision="3" y="170" height="45" fontSize="11" display="Hidden misconduct rate" width="200" sizeVersion="0">hidden-misconduct-rate</monitor>
-    <monitor x="780" precision="17" y="220" height="45" fontSize="11" display="Reported events" width="200" sizeVersion="0">reported-events-total</monitor>
-    <monitor x="780" precision="17" y="270" height="45" fontSize="11" display="Retaliation events" width="200" sizeVersion="0">retaliation-events-total</monitor>
+    <monitor x="780" precision="3" y="170" height="45" fontSize="11" display="Hidden misconduct rate (total)" width="200" sizeVersion="0">hidden-misconduct-rate</monitor>
+    <monitor x="780" precision="17" y="220" height="45" fontSize="11" display="Reported events (total)" width="200" sizeVersion="0">reported-events-total</monitor>
+    <monitor x="780" precision="17" y="270" height="45" fontSize="11" display="Retaliation events (total)" width="200" sizeVersion="0">retaliation-events-total</monitor>
     <monitor x="780" precision="17" y="320" height="45" fontSize="11" display="True misconduct (tick)" width="200" sizeVersion="0">true-misconduct-this-tick</monitor>
-    <monitor x="780" precision="17" y="370" height="45" fontSize="11" display="Sanctioned (tick)" width="200" sizeVersion="0">sanctioned-this-tick</monitor>
-    <monitor x="780" precision="1" y="420" height="45" fontSize="11" display="Relative change (%)" width="200" sizeVersion="0">relative-misconduct-change</monitor>
+    <monitor x="780" precision="17" y="370" height="45" fontSize="11" display="Sanctioned misconduct (tick)" width="200" sizeVersion="0">sanctioned-this-tick</monitor>
+    <monitor x="780" precision="17" y="420" height="45" fontSize="11" display="Reported events (tick)" width="200" sizeVersion="0">reported-events-this-tick</monitor>
+    <monitor x="780" precision="17" y="470" height="45" fontSize="11" display="Retaliation events (tick)" width="200" sizeVersion="0">retaliation-events-this-tick</monitor>
+    <monitor x="780" precision="17" y="520" height="45" fontSize="11" display="Hidden misconduct (tick)" width="200" sizeVersion="0">hidden-misconduct-this-tick</monitor>
+    <monitor x="780" precision="3" y="570" height="45" fontSize="11" display="Hidden misconduct rate (tick)" width="200" sizeVersion="0">hidden-misconduct-rate-this-tick</monitor>
+    <monitor x="780" precision="1" y="620" height="45" fontSize="11" display="Relative change (%)" width="200" sizeVersion="0">relative-misconduct-change</monitor>
     <plot x="987" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="events" y="9" xMin="0.0" height="221" legend="true" xMax="10.0" yMin="0.0" xAxis="ticks" display="Misconduct Dynamics (Cumulative)" width="454" sizeVersion="0">
       <setup></setup>
       <update></update>
@@ -276,8 +301,8 @@ Each tick represents one abstract time period inside the organisation.
 2. **Misconduct decision** — each employee commits misconduct with probability equal to their `misconduct-propensity`.
 3. **Observation** — nearby coworkers within a fixed radius of 3 patches may observe.
 4. **Reporting** — a random observer decides to report based on their `fear`, the `reporter-protection` level, and the offender's propensity profile (logistic function).
-5. **Sanctioning** — every reported case is sanctioned automatically. `punishment-value` controls **strength** only: how much the offender's propensity drops.
-6. **Retaliation** — retaliation occurs with probability `(1 − reporter-protection)`. The fear increase for the reporter is coupled to `learning-rate`.
+5. **Sanctioning** — every reported case is sanctioned automatically. `punishment-value` controls sanction strength on the offender.
+6. **Retaliation** — retaliation occurs with probability `(1 − reporter-protection)`. The fear increase for the reporter is coupled to `learning-rate`, increases with `punishment-value`, and decreases with `reporter-protection`.
 7. **Drift** — propensity mean-reverts toward its starting value; fear decays slowly each tick without retaliation (learning-rate-coupled).
 
 Key outcome: `hidden-misconduct-rate = (true − sanctioned) / true`
@@ -287,7 +312,7 @@ Key outcome: `hidden-misconduct-rate = (true − sanctioned) / true`
 1. Click **setup**.
 2. Click **go** (forever button).
 3. Vary policy sliders:
-   - `punishment-value` — strength of sanction on offender propensity
+   - `punishment-value` — sanction strength and retaliation severity
    - `reporter-protection` — reduces retaliation probability and fear accumulation
 4. Observe monitors and three plots:
    - **Cumulative Dynamics** — total true / sanctioned / hidden over time
@@ -318,6 +343,7 @@ The following are fixed in the code (not sliders, to keep the interface focused)
 | BASE-REPORTING-CLIMATE | 0.1 | Slightly positive default climate |
 | OBSERVATION-RADIUS | 3 patches | Typical workplace proximity |
 | RETALIATION-COST | 1.2 utility units | Fixed cost per retaliation event |
+| MISCONDUCT-GAIN | 1.4 utility units | Fixed utility gain per misconduct event |
 
 ## EXTENDING THE MODEL
 

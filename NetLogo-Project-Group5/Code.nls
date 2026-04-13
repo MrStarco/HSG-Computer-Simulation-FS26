@@ -5,18 +5,18 @@
 ;;   BASE-REPORTING-CLIMATE  = 0.1
 ;;   OBSERVATION-RADIUS      = 3
 ;;   RETALIATION-COST        = 1.2
+;;   MISCONDUCT-GAIN         = 1.4
 ;;
 ;; Removed sliders:
 ;;   base-reporting-climate, observation-radius,
-;;   retaliation-base-chance, sanction-cost, retaliation-cost
-;;
-;; Renamed slider:
-;;   enforcement-strictness  ->  punishment-value
+;;   retaliation-base-chance, sanction-cost, retaliation-cost,
+;;   misconduct-gain
 ;;
 ;; Key behaviour changes:
 ;;   - Sanctioning is AUTOMATIC on every report (no probability gate)
 ;;   - punishment-value controls STRENGTH of propensity drop only
 ;;   - Retaliation probability = (1 - reporter-protection)
+;;   - Retaliation strength increases with punishment-value
 ;;   - Fear COUPLED with learning-rate: rises on retaliation, decays
 ;;     slowly every tick without retaliation  (no more global drift)
 ;;   - Two new plots: Per Tick Dynamics + Relative Change (%)
@@ -33,6 +33,10 @@ globals [
   hidden-misconduct-total
   true-misconduct-this-tick
   sanctioned-this-tick
+  reported-events-this-tick
+  retaliation-events-this-tick
+  hidden-misconduct-this-tick
+  hidden-misconduct-rate-this-tick
   true-misconduct-prev-tick    ;; carries over from last tick for % calc
   relative-misconduct-change   ;; stock-like % change vs. previous tick
 ]
@@ -58,6 +62,10 @@ to setup
   set hidden-misconduct-total     0
   set true-misconduct-this-tick   0
   set sanctioned-this-tick        0
+  set reported-events-this-tick   0
+  set retaliation-events-this-tick 0
+  set hidden-misconduct-this-tick 0
+  set hidden-misconduct-rate-this-tick 0
   set true-misconduct-prev-tick   0
   set relative-misconduct-change  0
 
@@ -84,6 +92,10 @@ to go
   set true-misconduct-prev-tick true-misconduct-this-tick   ;; snapshot before reset
   set true-misconduct-this-tick 0
   set sanctioned-this-tick      0
+  set reported-events-this-tick 0
+  set retaliation-events-this-tick 0
+  set hidden-misconduct-this-tick 0
+  set hidden-misconduct-rate-this-tick 0
 
   move-employees
   misconduct-phase
@@ -115,7 +127,7 @@ to misconduct-phase
       set committed-this-tick? true
       set true-misconduct-this-tick true-misconduct-this-tick + 1
       set true-misconduct-total     true-misconduct-total     + 1
-      set utility utility + misconduct-gain
+      set utility utility + 1.4      ;; MISCONDUCT-GAIN (hardcoded)
     ]
   ]
 end
@@ -146,6 +158,7 @@ to decide-report [offender]
 
   if random-float 1 < reporting-prob [
     set reported-events-total reported-events-total + 1
+    set reported-events-this-tick reported-events-this-tick + 1
 
     ;; --------------------------------------------------------
     ;; SANCTIONING – automatic (no probability gate).
@@ -164,16 +177,20 @@ to decide-report [offender]
     ;; --------------------------------------------------------
     ;; RETALIATION – triggered on every report.
     ;; Probability = (1 - reporter-protection)  [prob falls as protection rises]
-    ;; Fear increase is learning-rate-coupled + modulated by protection.
+    ;; Fear increase is learning-rate-coupled + modulated by
+    ;; protection and punishment-value (stronger punishment can trigger
+    ;; stronger retaliation pressure).
     ;; RETALIATION-COST hardcoded = 1.2
     ;; --------------------------------------------------------
     let retaliation-prob clamp01 (1 - reporter-protection)
     if random-float 1 < retaliation-prob [
       set retaliation-events-total retaliation-events-total + 1
+      set retaliation-events-this-tick retaliation-events-this-tick + 1
       set retaliated-this-tick? true
       ;; Fear jumps upward; coupling via learning-rate means slow learners
       ;; accumulate fear less aggressively.
-      set fear clamp01 (fear + learning-rate * 0.5 * (1 - reporter-protection))
+      set fear clamp01 (fear
+        + learning-rate * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))
       set utility utility - 1.2    ;; RETALIATION-COST
     ]
   ]
@@ -222,6 +239,12 @@ end
 ;; METRICS
 ;; ============================================================
 to update-metrics
+  set hidden-misconduct-this-tick (true-misconduct-this-tick - sanctioned-this-tick)
+  ifelse true-misconduct-this-tick > 0
+  [ set hidden-misconduct-rate-this-tick
+      hidden-misconduct-this-tick / true-misconduct-this-tick ]
+  [ set hidden-misconduct-rate-this-tick 0 ]
+
   ;; Cumulative hidden = all misconduct that was never reported/sanctioned
   set hidden-misconduct-total (true-misconduct-total - sanctioned-misconduct-total)
   ifelse true-misconduct-total > 0
