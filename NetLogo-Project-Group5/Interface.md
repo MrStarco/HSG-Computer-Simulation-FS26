@@ -34,7 +34,7 @@ Dieses Dokument beschreibt alle Widgets, die fuer das Modell benoetigt werden, p
    - Increment: `0.01`
    - Default: `0.35`
 
-4. `enforcement-strictness`
+4. `punishment-value`
    - Min: `0`
    - Max: `1`
    - Increment: `0.01`
@@ -46,47 +46,17 @@ Dieses Dokument beschreibt alle Widgets, die fuer das Modell benoetigt werden, p
    - Increment: `0.01`
    - Default: `0.45`
 
-6. `base-reporting-climate`
-   - Min: `-1`
-   - Max: `1`
-   - Increment: `0.01`
-   - Default: `0.10`
-
-7. `observation-radius`
-   - Min: `1`
-   - Max: `8`
-   - Increment: `1`
-   - Default: `3`
-
-8. `retaliation-base-chance`
-   - Min: `0`
-   - Max: `1`
-   - Increment: `0.01`
-   - Default: `0.40`
-
-9. `misconduct-gain`
+6. `misconduct-gain`
    - Min: `0`
    - Max: `5`
    - Increment: `0.1`
    - Default: `1.4`
 
-10. `sanction-cost`
-    - Min: `0`
-    - Max: `8`
-    - Increment: `0.1`
-    - Default: `2.6`
-
-11. `retaliation-cost`
-    - Min: `0`
-    - Max: `5`
-    - Increment: `0.1`
-    - Default: `1.2`
-
-12. `learning-rate`
-    - Min: `0`
-    - Max: `1`
-    - Increment: `0.01`
-    - Default: `0.20`
+7. `learning-rate`
+   - Min: `0`
+   - Max: `1`
+   - Increment: `0.01`
+   - Default: `0.20`
 
 ### Monitors
 
@@ -115,25 +85,47 @@ Dieses Dokument beschreibt alle Widgets, die fuer das Modell benoetigt werden, p
 8. `Sanctioned (tick)`
    - Reporter: `sanctioned-this-tick`
 
-### Plot
+9. `Relative change (%)`
+   - Reporter: `relative-misconduct-change`
+   - Decimal places: `1`
 
-Plot name: `Misconduct Dynamics`
+### Plots
+
+#### Plot 1: `Misconduct Dynamics (Cumulative)`
 
 - X-Axis: `ticks`
 - Y-Axis: `events`
+- Pens:
+  1. `true total` -> `plot true-misconduct-total`
+  2. `sanctioned total` -> `plot sanctioned-misconduct-total`
+  3. `hidden total` -> `plot hidden-misconduct-total`
 
-PENS:
+#### Plot 2: `Per Tick Misconduct`
 
-1. Pen `true`
-   - Update command: `plot true-misconduct-total`
+- X-Axis: `ticks`
+- Y-Axis: `events / tick`
+- Pens:
+  1. `true (tick)` -> `plot true-misconduct-this-tick`
+  2. `sanctioned (tick)` -> `plot sanctioned-this-tick`
+  3. `hidden (tick)` -> `plot (true-misconduct-this-tick - sanctioned-this-tick)`
 
-2. Pen `sanctioned`
-   - Update command: `plot sanctioned-misconduct-total`
+#### Plot 3: `Relative Misconduct Change (%)`
 
-3. Pen `hidden`
-   - Update command: `plot hidden-misconduct-total`
+- X-Axis: `ticks`
+- Y-Axis: `% change`
+- Pens:
+  1. `rel. change %` -> `plot relative-misconduct-change`
+  2. `zero` -> `plot 0`
 
-## 2) Manuelle Einrichtung in NetLogo
+## 2) Hardcoded Konstanten im Code
+
+Diese Werte sind fest im Modellcode hinterlegt und erscheinen deshalb nicht als Slider:
+
+- `BASE-REPORTING-CLIMATE = 0.1`
+- `OBSERVATION-RADIUS = 3`
+- `RETALIATION-COST = 1.2`
+
+## 3) Manuelle Einrichtung in NetLogo
 
 1. NetLogo starten.
 2. Entweder:
@@ -141,18 +133,18 @@ PENS:
    - neues leeres Modell erstellen (`File -> New`) und manuell befuellen.
 3. Bei manueller Befuellung:
    - **Code Tab**: Inhalt aus `Code.nls` komplett einfuegen.
-   - **Interface Tab**: Widgets gemass obiger Spezifikation anlegen.
+   - **Interface Tab**: Widgets gemaess obiger Spezifikation anlegen.
    - **Info Tab**: Inhalt aus `Documentation.md` einfuegen.
 4. Reihenfolge fuer Tests:
    - `setup` klicken
    - `go` starten/stoppen
-   - Parameter variieren (z. B. `enforcement-strictness` und `reporter-protection`)
+   - Parameter variieren (z. B. `punishment-value` und `reporter-protection`)
 5. Modell speichern (`File -> Save`), damit Interface-Layout dauerhaft bleibt.
 
-## 3) Empfohlene Layout-Struktur
+## 4) Empfohlene Layout-Struktur
 
 - Links oben: `setup`, `go`
 - Darunter links: alle Slider
 - Rechts: Monitors
-- Unten rechts: Plot `Misconduct Dynamics`
+- Unten/rechts: die drei Plots
 - Mitte: Graphics Window (Agentenansicht)

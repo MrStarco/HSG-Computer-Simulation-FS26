@@ -1,16 +1,20 @@
 # Variablen-, Slider- und Tick-Mathematik Dokumentation
 
-Dieses Dokument erklaert, wie die Interface-Slider mit den Modellvariablen verbunden sind und was mathematisch in jedem Tick passiert.
+Dieses Dokument beschreibt die Mathematik der aktuellen Modellimplementierung und die Wirkung der aktiven Slider.
 
-## 1) Kernvariablen pro Agent
+## 1) Kernvariablen
 
-Jeder `employee` hat:
+### 1.1 Agent-Variablen (`employees-own`)
 
-- `misconduct-propensity` in `[0,1]`: Wahrscheinlichkeit fuer Fehlverhalten.
-- `fear` in `[0,1]`: beeinflusst Meldungsbereitschaft negativ.
-- `utility`: akkumuliert Gewinne/Kosten aus Verhalten, Sanktionen und Retaliation.
+Jeder `employee` besitzt:
 
-Wichtige globale Zaehler:
+- `misconduct-propensity` in `[0,1]`: individuelle Wahrscheinlichkeit fuer Fehlverhalten.
+- `fear` in `[0,1]`: senkt die Wahrscheinlichkeit, Fehlverhalten zu melden.
+- `utility`: akkumuliert Nutzen/Kosten aus Ereignissen.
+- `committed-this-tick?`: Flag, ob der Agent im aktuellen Tick Fehlverhalten begangen hat.
+- `retaliated-this-tick?`: Flag, ob der Agent im aktuellen Tick Vergeltung erlebt hat.
+
+### 1.2 Globale Zaehler (`globals`)
 
 - `true-misconduct-total`
 - `sanctioned-misconduct-total`
@@ -18,186 +22,178 @@ Wichtige globale Zaehler:
 - `retaliation-events-total`
 - `hidden-misconduct-total`
 - `hidden-misconduct-rate`
+- `true-misconduct-this-tick`
+- `sanctioned-this-tick`
+- `true-misconduct-prev-tick`
+- `relative-misconduct-change`
 
-Hilfsfunktionen:
+### 1.3 Hilfsfunktionen
 
 - `clamp01(x) = max(0, min(1, x))`
 - `logistic(x) = 1 / (1 + exp(-x))`
 
-## 2) Tick-Ablauf (mathematisch, in Reihenfolge)
+## 2) Hardcoded Modellkonstanten
 
-Pro Tick laeuft `go` in dieser Logik:
+Diese Werte sind fest im Code hinterlegt:
 
-1. Bewegung
-2. Fehlverhaltens-Entscheid
-3. Beobachtung und Reporting
-4. Drift/Feedback
-5. Metrik-Update
+- `BASE-REPORTING-CLIMATE = 0.1`
+- `OBSERVATION-RADIUS = 3`
+- `RETALIATION-COST = 1.2`
 
-### 2.1 Bewegung
+## 3) Tick-Ablauf (in Reihenfolge)
 
-Agenten bewegen sich lokal zufaellig. Das aendert die Nachbarschaft und damit indirekt die Beobachtungswahrscheinlichkeit.
+Pro Tick laeuft `go` in dieser Sequenz:
 
-### 2.2 Fehlverhalten
+1. Snapshot des letzten Tick-Werts (`true-misconduct-prev-tick`)
+2. Reset von Tick-Zaehlern
+3. Bewegung
+4. Fehlverhaltens-Entscheid
+5. Beobachtung und Reporting
+6. Drift-Phase
+7. Metrik-Update
+
+### 3.1 Bewegung
+
+Alle Agenten bewegen sich lokal zufaellig:
+
+- Drehung und Vorwaertsbewegung (`rt random 50`, `lt random 50`, `fd 1`)
+
+Dadurch veraendert sich die lokale Nachbarschaft fuer Beobachtung.
+
+### 3.2 Fehlverhalten
 
 Fuer jeden Agenten `i`:
 
-- Ziehe `u ~ Uniform(0,1)`.
-- Wenn `u < m_i(t)` mit `m_i(t) = misconduct-propensity_i(t)`, dann begeht Agent `i` Fehlverhalten.
+- Ziehe `u ~ Uniform(0,1)`
+- Wenn `u < m_i(t)` mit `m_i(t) = misconduct-propensity_i(t)`, dann commitet Agent `i`
 
-Damit ist das Ereignis Bernoulli-verteilt:
+Also:
 
 - `P(commit_i(t)=1) = m_i(t)`
 
-Wenn Fehlverhalten passiert:
+Bei Commit:
 
 - `true-misconduct-this-tick += 1`
 - `true-misconduct-total += 1`
 - `utility_i += misconduct-gain`
 
-### 2.3 Beobachtung und Reporting
+### 3.3 Beobachtung und Reporting
 
-Fuer jeden Offender `j` mit Fehlverhalten:
+Fuer jeden Offender `j`:
 
-- Menge der moeglichen Beobachter: Agenten in `observation-radius`.
-- Falls mindestens ein Beobachter existiert, wird ein zufaelliger Beobachter `k` ausgewaehlt.
+- Witness-Menge: `other employees in-radius 3`
+- Falls Witness vorhanden: waehle zufaellig einen Beobachter `k`
 
 Reporting-Input:
 
-`x_report = base-reporting-climate + 0.8 * reporter-protection - fear_k + 0.2 * misconduct-propensity_j`
+`x_report = 0.1 + 0.8 * reporter-protection - fear_k + 0.2 * misconduct-propensity_j`
 
 Reporting-Wahrscheinlichkeit:
 
 `p_report = logistic(x_report)`
 
-Mit `u ~ Uniform(0,1)` gilt:
+Wenn `u < p_report`:
 
-- Wenn `u < p_report`, dann wird gemeldet (`reported-events-total += 1`).
+- `reported-events-total += 1`
 
-### 2.4 Sanktion bei Report
+### 3.4 Sanktionierung (bei Report)
 
-Sanktionswahrscheinlichkeit:
-
-`p_sanction = clamp01(0.15 + 0.75 * enforcement-strictness)`
-
-Wenn Sanktion eintritt:
+Sanktionierung erfolgt bei jedem Report automatisch:
 
 - `sanctioned-this-tick += 1`
 - `sanctioned-misconduct-total += 1`
-- `utility_j -= sanction-cost * enforcement-strictness`
-- `misconduct-propensity_j = clamp01(misconduct-propensity_j - learning-rate * 0.8)`
 
-Wenn keine Sanktion eintritt:
+Update fuer den Offender `j`:
 
-- `misconduct-propensity_j = clamp01(misconduct-propensity_j + learning-rate * 0.3)`
+`misconduct-propensity_j = clamp01(misconduct-propensity_j - learning-rate * (0.3 + 0.7 * punishment-value))`
 
-### 2.5 Retaliation nach Report
+Interpretation:
+
+- Bei `punishment-value = 0`: Absenkung um `learning-rate * 0.3`
+- Bei `punishment-value = 1`: Absenkung um `learning-rate * 1.0`
+
+### 3.5 Retaliation (nach Report)
 
 Retaliationswahrscheinlichkeit:
 
-`p_ret = clamp01(retaliation-base-chance * (1 - reporter-protection) * (0.5 + enforcement-strictness))`
+`p_ret = clamp01(1 - reporter-protection)`
 
-Wenn Retaliation eintritt:
+Wenn Retaliation eintritt (beim Beobachter `k`):
 
 - `retaliation-events-total += 1`
-- `fear_k = clamp01(fear_k + 0.15 * (1 - reporter-protection))`
-- `utility_k -= retaliation-cost`
+- `retaliated-this-tick? = true`
+- `fear_k = clamp01(fear_k + learning-rate * 0.5 * (1 - reporter-protection))`
+- `utility_k -= 1.2`
 
-### 2.6 Drift-Phase fuer alle Agenten
+### 3.6 Drift-Phase
 
 Fuer jeden Agenten `i`:
 
-1. Rueckdrift von `misconduct-propensity`, aber nur wenn in diesem Tick **kein** Fehlverhalten begangen wurde:
+1. **Mean-Reversion der Fehlverhaltensneigung** (nur wenn kein Commit in diesem Tick):
 
 `m_i(t+1) = clamp01(m_i(t) + learning-rate * (initial-misconduct-propensity - m_i(t)))`
 
-2. Genereller Fear-Drift:
+2. **Fear-Decay** (nur wenn keine Retaliation in diesem Tick):
 
-`fear_i(t+1) = clamp01(fear_i(t) + 0.05 * retaliation-base-chance * (1 - reporter-protection))`
+`fear_i(t+1) = clamp01(fear_i(t) - learning-rate * 0.03)`
 
-### 2.7 Metriken
+Damit ist Fear eventgetrieben nach oben und ohne neues Ereignis langsam ruecklaeufig.
 
-- `hidden-misconduct-total = true-misconduct-total - sanctioned-misconduct-total`
+### 3.7 Metriken
+
+Kumulierte Hidden-Misconduct:
+
+`hidden-misconduct-total = true-misconduct-total - sanctioned-misconduct-total`
+
+Rate:
+
 - Wenn `true-misconduct-total > 0`:
   - `hidden-misconduct-rate = hidden-misconduct-total / true-misconduct-total`
-  andernfalls `0`.
+- sonst:
+  - `hidden-misconduct-rate = 0`
 
-## 3) Verbindung Slider -> Formeln -> Wirkung
+Relative Tick-zu-Tick-Aenderung:
+
+- Wenn `true-misconduct-prev-tick > 0`:
+  - `relative-misconduct-change = ((true-misconduct-this-tick - true-misconduct-prev-tick) / true-misconduct-prev-tick) * 100`
+- sonst:
+  - `relative-misconduct-change = 0`
+
+## 4) Slider -> Formel -> Wirkung
 
 | Slider | Direkter mathematischer Ort | Haupteffekt |
 |---|---|---|
-| `number-employees` | Populationsgroesse `N` | Mehr Agenten -> mehr potenzielle Ereignisse pro Tick |
-| `initial-misconduct-propensity` | Startwert von `m_i`, Drift-Ziel | Hoeheres langfristiges Basisniveau fuer Fehlverhalten |
-| `initial-fear` | Startwert von `fear_i` | Anfangs geringere Reporting-Wahrscheinlichkeit bei hohem Wert |
-| `enforcement-strictness` | `p_sanction`, Sanktionskosten, `p_ret` | Mehr Sanktionen, aber auch Retaliationsterm wird groesser |
-| `reporter-protection` | Reporting-Input, `p_ret`, Fear-Zuwachs | Mehr Meldungen, weniger Retaliation, langsamerer Fear-Anstieg |
-| `base-reporting-climate` | Reporting-Input `x_report` | Verschiebt Report-Logit nach oben/unten |
-| `observation-radius` | Zeugenmenge in Radius | Hoeherer Radius -> eher Zeugen vorhanden |
-| `retaliation-base-chance` | `p_ret` und Fear-Drift | Mehr Retaliation und systematisch steigende Angst |
-| `misconduct-gain` | `utility += misconduct-gain` | Erhoeht kurzfristigen Anreiz fuer Offender |
-| `sanction-cost` | `utility -= sanction-cost * enforcement-strictness` | Erhoeht erwartete Kosten bei Sanktion |
-| `retaliation-cost` | `utility_observer -= retaliation-cost` | Erhoeht Kosten fuer Melder bei Retaliation |
-| `learning-rate` | Updates von `misconduct-propensity` | Schnellere Anpassung nach Sanktion/Nicht-Sanktion/Drift |
+| `number-employees` | Populationsgroesse `N` | Mehr Agenten erzeugen mehr potenzielle Ereignisse pro Tick |
+| `initial-misconduct-propensity` | Startwert von `m_i`; Zielwert der Mean-Reversion | Hoeheres langfristiges Baseline-Niveau fuer Fehlverhalten |
+| `initial-fear` | Startwert von `fear_i` | Niedrigere Anfangs-Reportingbereitschaft bei hohem Wert |
+| `punishment-value` | Absenkung von `misconduct-propensity` nach Sanktion | Staerkere Reduktion der Offender-Neigung bei hohem Wert |
+| `reporter-protection` | Reporting-Input, `p_ret`, Fear-Anstieg bei Retaliation | Mehr Reporting und weniger Retaliation/Fear-Anstieg |
+| `misconduct-gain` | `utility += misconduct-gain` bei Commit | Erhoeht unmittelbaren Nutzen aus Fehlverhalten |
+| `learning-rate` | Updates von Propensity und Fear | Steuert Geschwindigkeit aller Anpassungsprozesse |
 
-## 4) Dynamik ueber viele Ticks (Intuition)
+## 5) Dynamik ueber viele Ticks (Intuition)
 
-### 4.1 Erwartete Fehlverhalten pro Tick
-
-Wenn `m_i(t)` gegeben ist:
+### 5.1 Erwartete Fehlverhalten pro Tick
 
 `E[true-misconduct-this-tick | t] = Sum_i m_i(t)`
 
-Das ist der zentrale Treiber fuer alle Folgeprozesse.
+Das ist der zentrale Input fuer Reporting, Sanktionen und Hidden-Misconduct.
 
-### 4.2 Reporting als Logit-Mechanik
+### 5.2 Nichtlineares Reporting
 
-`p_report = logistic(x_report)` macht den Prozess nichtlinear:
+Durch `p_report = logistic(x_report)` wirken kleine Aenderungen in `x_report` besonders stark im mittleren Bereich und schwach in den Saettigungsbereichen nahe 0 oder 1.
 
-- kleine Aenderungen in `x_report` nahe `0` haben den groessten Effekt,
-- bei sehr niedrigen/hohen Werten saettigt die Wahrscheinlichkeit gegen `0` bzw. `1`.
+### 5.3 Gekoppelte Fear-Dynamik
 
-### 4.3 Rueckkopplung auf Fehlverhalten
+Fear bewegt sich in beide Richtungen:
 
-Offender erhalten drei Arten von Updates:
+- nach oben bei Retaliation (eventbasiert),
+- nach unten ohne Retaliation (langsamer Decay).
 
-- Sanktion: `m` sinkt stark um `learning-rate * 0.8`
-- Report ohne Sanktion: `m` steigt um `learning-rate * 0.3`
-- Kein Commit im Tick: `m` driftet Richtung `initial-misconduct-propensity`
+Damit entsteht eine realistischere Erholungsdynamik statt dauerhaftem Drift nach oben.
 
-Damit entsteht ueber Zeit ein Gleichgewicht aus:
+### 5.4 Hidden-Misconduct als Policy-Zielgroesse
 
-- Entdeckung/Reporting/Sanktion (daempfend),
-- Baseline-Drift und unsanktioniertem Lernen (anhebend).
+`hidden-misconduct-rate = 1 - sanctioned-misconduct-total / true-misconduct-total`
 
-### 4.4 Fear-Dynamik ueber Zeit
-
-Es gibt einen systematischen Driftterm:
-
-`Delta fear_base = 0.05 * retaliation-base-chance * (1 - reporter-protection)`
-
-plus eventbasierte Spruenge bei Retaliation.
-
-Ohne starke Protection oder geringe Retaliation steigt Fear daher tendenziell und senkt indirekt Reporting.
-
-### 4.5 Hidden Misconduct als Ergebnisgroesse
-
-`hidden-misconduct-rate` sinkt nur, wenn Sanktionen mit den True Events Schritt halten.
-
-Formal:
-
-`hidden-rate = 1 - sanctioned-misconduct-total / true-misconduct-total`
-
-Folge: Sichtbar viele Sanktionen sind nicht automatisch "gut", wenn gleichzeitig True Misconduct noch schneller steigt.
-
-## 5) Praktische Lesart fuer Policy-Experimente
-
-- Hohe `enforcement-strictness` ohne ausreichend `reporter-protection` kann gemischte Effekte erzeugen (mehr Sanktion, aber auch mehr Retaliationsdruck).
-- `reporter-protection` ist ein Hebel auf zwei Kanaelen gleichzeitig: Reporting rauf, Retaliation/Fear runter.
-- `learning-rate` steuert, wie schnell sich das System nach Policy-Aenderungen neu einpendelt.
-
-Damit laesst sich jeder Run als gekoppelte stochastische Dynamik lesen:
-
-1. Bernoulli-Fehlverhalten
-2. Logit-Reporting
-3. Stochastische Sanktion/Retaliation
-4. Lern- und Drift-Updates mit Clamping auf `[0,1]`
+Die Rate sinkt nur, wenn sanktionierte Faelle langfristig mit den tatsaechlichen Faellen Schritt halten.
