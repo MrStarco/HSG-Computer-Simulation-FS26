@@ -1,3 +1,27 @@
+;; ============================================================
+;; Group 5 – Misconduct ABM  |  Revised Code
+;; ============================================================
+;; Hardcoded constants (removed from Interface sliders):
+;;   BASE-REPORTING-CLIMATE  = 0.1
+;;   OBSERVATION-RADIUS      = 3
+;;   RETALIATION-COST        = 1.2
+;;
+;; Removed sliders:
+;;   base-reporting-climate, observation-radius,
+;;   retaliation-base-chance, sanction-cost, retaliation-cost
+;;
+;; Renamed slider:
+;;   enforcement-strictness  ->  punishment-value
+;;
+;; Key behaviour changes:
+;;   - Sanctioning is AUTOMATIC on every report (no probability gate)
+;;   - punishment-value controls STRENGTH of propensity drop only
+;;   - Retaliation probability = (1 - reporter-protection)
+;;   - Fear COUPLED with learning-rate: rises on retaliation, decays
+;;     slowly every tick without retaliation  (no more global drift)
+;;   - Two new plots: Per Tick Dynamics + Relative Change (%)
+;; ============================================================
+
 breed [employees employee]
 
 globals [
@@ -9,6 +33,8 @@ globals [
   hidden-misconduct-total
   true-misconduct-this-tick
   sanctioned-this-tick
+  true-misconduct-prev-tick    ;; carries over from last tick for % calc
+  relative-misconduct-change   ;; stock-like % change vs. previous tick
 ]
 
 employees-own [
@@ -16,18 +42,24 @@ employees-own [
   misconduct-propensity
   fear
   committed-this-tick?
+  retaliated-this-tick?        ;; flag: was this observer retaliated against this tick?
 ]
 
+;; ============================================================
+;; SETUP
+;; ============================================================
 to setup
   clear-all
-  set true-misconduct-total 0
+  set true-misconduct-total       0
   set sanctioned-misconduct-total 0
-  set reported-events-total 0
-  set retaliation-events-total 0
-  set hidden-misconduct-rate 0
-  set hidden-misconduct-total 0
-  set true-misconduct-this-tick 0
-  set sanctioned-this-tick 0
+  set reported-events-total       0
+  set retaliation-events-total    0
+  set hidden-misconduct-rate      0
+  set hidden-misconduct-total     0
+  set true-misconduct-this-tick   0
+  set sanctioned-this-tick        0
+  set true-misconduct-prev-tick   0
+  set relative-misconduct-change  0
 
   create-employees number-employees [
     setxy random-xcor random-ycor
@@ -35,18 +67,23 @@ to setup
     set size 1.1
     set utility 0
     set misconduct-propensity clamp01 (random-normal initial-misconduct-propensity 0.08)
-    set fear clamp01 (random-normal initial-fear 0.08)
-    set committed-this-tick? false
+    set fear                  clamp01 (random-normal initial-fear 0.08)
+    set committed-this-tick?  false
+    set retaliated-this-tick? false
     recolor-from-fear
   ]
   reset-ticks
 end
 
+;; ============================================================
+;; MAIN LOOP
+;; ============================================================
 to go
   if not any? employees [ stop ]
 
+  set true-misconduct-prev-tick true-misconduct-this-tick   ;; snapshot before reset
   set true-misconduct-this-tick 0
-  set sanctioned-this-tick 0
+  set sanctioned-this-tick      0
 
   move-employees
   misconduct-phase
@@ -56,6 +93,9 @@ to go
   tick
 end
 
+;; ============================================================
+;; MOVEMENT
+;; ============================================================
 to move-employees
   ask employees [
     rt random 50
@@ -64,22 +104,30 @@ to move-employees
   ]
 end
 
+;; ============================================================
+;; MISCONDUCT DECISION
+;; ============================================================
 to misconduct-phase
   ask employees [
-    set committed-this-tick? false
+    set committed-this-tick?  false
+    set retaliated-this-tick? false
     if random-float 1 < misconduct-propensity [
       set committed-this-tick? true
       set true-misconduct-this-tick true-misconduct-this-tick + 1
-      set true-misconduct-total true-misconduct-total + 1
+      set true-misconduct-total     true-misconduct-total     + 1
       set utility utility + misconduct-gain
     ]
   ]
 end
 
+;; ============================================================
+;; OBSERVATION + REPORTING
+;; ============================================================
 to observation-and-reporting-phase
   ask employees with [committed-this-tick?] [
     let offender self
-    let witnesses other employees in-radius observation-radius
+    ;; OBSERVATION-RADIUS hardcoded = 3
+    let witnesses other employees in-radius 3
     if any? witnesses [
       let observer one-of witnesses
       ask observer [ decide-report offender ]
@@ -88,49 +136,80 @@ to observation-and-reporting-phase
 end
 
 to decide-report [offender]
-  let reporting-input (base-reporting-climate + (0.8 * reporter-protection) - fear + (0.2 * [misconduct-propensity] of offender))
+  ;; Reporting probability via logistic:
+  ;;   BASE-REPORTING-CLIMATE hardcoded = 0.1
+  let reporting-input (0.1
+    + (0.8 * reporter-protection)
+    - fear
+    + (0.2 * [misconduct-propensity] of offender))
   let reporting-prob logistic reporting-input
 
   if random-float 1 < reporting-prob [
     set reported-events-total reported-events-total + 1
 
-    let sanction-prob clamp01 (0.15 + (0.75 * enforcement-strictness))
-    ifelse random-float 1 < sanction-prob
-    [
-      set sanctioned-this-tick sanctioned-this-tick + 1
-      set sanctioned-misconduct-total sanctioned-misconduct-total + 1
-      ask offender [
-        set utility utility - (sanction-cost * enforcement-strictness)
-        set misconduct-propensity clamp01 (misconduct-propensity - (learning-rate * 0.8))
-      ]
-    ]
-    [
-      ask offender [
-        set misconduct-propensity clamp01 (misconduct-propensity + (learning-rate * 0.3))
-      ]
+    ;; --------------------------------------------------------
+    ;; SANCTIONING – automatic (no probability gate).
+    ;; punishment-value = STRENGTH of propensity reduction only.
+    ;; Drop scales from learning-rate*0.3 (punishment=0)
+    ;;                  to learning-rate*1.0 (punishment=1).
+    ;; --------------------------------------------------------
+    set sanctioned-this-tick        sanctioned-this-tick        + 1
+    set sanctioned-misconduct-total sanctioned-misconduct-total + 1
+    ask offender [
+      set misconduct-propensity clamp01 (
+        misconduct-propensity
+        - learning-rate * (0.3 + 0.7 * punishment-value))
     ]
 
-    let retaliation-prob clamp01 (retaliation-base-chance * (1 - reporter-protection) * (0.5 + enforcement-strictness))
+    ;; --------------------------------------------------------
+    ;; RETALIATION – triggered on every report.
+    ;; Probability = (1 - reporter-protection)  [prob falls as protection rises]
+    ;; Fear increase is learning-rate-coupled + modulated by protection.
+    ;; RETALIATION-COST hardcoded = 1.2
+    ;; --------------------------------------------------------
+    let retaliation-prob clamp01 (1 - reporter-protection)
     if random-float 1 < retaliation-prob [
       set retaliation-events-total retaliation-events-total + 1
-      set fear clamp01 (fear + (0.15 * (1 - reporter-protection)))
-      set utility utility - retaliation-cost
-      ask offender [ set color red ]
+      set retaliated-this-tick? true
+      ;; Fear jumps upward; coupling via learning-rate means slow learners
+      ;; accumulate fear less aggressively.
+      set fear clamp01 (fear + learning-rate * 0.5 * (1 - reporter-protection))
+      set utility utility - 1.2    ;; RETALIATION-COST
     ]
   ]
 end
 
+;; ============================================================
+;; DRIFT PHASE  –  propensity mean-reversion + fear decay
+;; ============================================================
 to drift-phase
   ask employees [
+    ;; Misconduct propensity: mean-reversion toward initial value
+    ;; only if agent did NOT commit this tick (reward/punishment handled above)
     if not committed-this-tick? [
-      set misconduct-propensity clamp01 (misconduct-propensity + (learning-rate * (initial-misconduct-propensity - misconduct-propensity)))
+      set misconduct-propensity clamp01 (
+        misconduct-propensity
+        + learning-rate * (initial-misconduct-propensity - misconduct-propensity))
     ]
-    set fear clamp01 (fear + (0.05 * retaliation-base-chance * (1 - reporter-protection)))
-    set committed-this-tick? false
+
+    ;; FEAR COUPLED WITH LEARNING-RATE:
+    ;;   - Goes UP during retaliation (handled in decide-report above).
+    ;;   - Decays slowly when NOT retaliated against this tick.
+    ;;   - Higher learning-rate = faster both ways.
+    ;;   This prevents fear from accumulating to 1 with no off-ramp.
+    if not retaliated-this-tick? [
+      set fear clamp01 (fear - learning-rate * 0.03)
+    ]
+
+    set committed-this-tick?  false
+    set retaliated-this-tick? false
     recolor-from-fear
   ]
 end
 
+;; ============================================================
+;; COLOUR CODING  (green < 0.33 | yellow < 0.66 | orange)
+;; ============================================================
 to recolor-from-fear
   ifelse fear < 0.33
   [ set color green + 1 ]
@@ -139,13 +218,27 @@ to recolor-from-fear
     [ set color orange + 1 ] ]
 end
 
+;; ============================================================
+;; METRICS
+;; ============================================================
 to update-metrics
+  ;; Cumulative hidden = all misconduct that was never reported/sanctioned
   set hidden-misconduct-total (true-misconduct-total - sanctioned-misconduct-total)
   ifelse true-misconduct-total > 0
-  [ set hidden-misconduct-rate (hidden-misconduct-total / true-misconduct-total) ]
+  [ set hidden-misconduct-rate hidden-misconduct-total / true-misconduct-total ]
   [ set hidden-misconduct-rate 0 ]
+
+  ;; Relative change vs. previous tick (stock-like, in %)
+  ifelse true-misconduct-prev-tick > 0
+  [ set relative-misconduct-change
+    ((true-misconduct-this-tick - true-misconduct-prev-tick)
+      / true-misconduct-prev-tick) * 100 ]
+  [ set relative-misconduct-change 0 ]
 end
 
+;; ============================================================
+;; HELPER REPORTERS
+;; ============================================================
 to-report clamp01 [x]
   report max (list 0 (min (list 1 x)))
 end

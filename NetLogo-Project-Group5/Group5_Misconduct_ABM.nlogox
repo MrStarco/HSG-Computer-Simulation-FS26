@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.3" snapToGrid="false">
+  <code><![CDATA[;; ============================================================
+;; Group 5 – Misconduct ABM  |  Revised Code
+;; ============================================================
+;; Hardcoded constants (removed from Interface sliders):
+;;   BASE-REPORTING-CLIMATE  = 0.1
+;;   OBSERVATION-RADIUS      = 3
+;;   RETALIATION-COST        = 1.2
+;;
+;; Removed sliders:
+;;   base-reporting-climate, observation-radius,
+;;   retaliation-base-chance, sanction-cost, retaliation-cost
+;;
+;; Renamed slider:
+;;   enforcement-strictness  ->  punishment-value
+;;
+;; Key behaviour changes:
+;;   - Sanctioning is AUTOMATIC on every report (no probability gate)
+;;   - punishment-value controls STRENGTH of propensity drop only
+;;   - Retaliation probability = (1 - reporter-protection)
+;;   - Fear COUPLED with learning-rate: rises on retaliation, decays
+;;     slowly every tick without retaliation  (no more global drift)
+;;   - Two new plots: Per Tick Dynamics + Relative Change (%)
+;; ============================================================
+
+breed [employees employee]
+
+globals [
+  true-misconduct-total
+  sanctioned-misconduct-total
+  reported-events-total
+  retaliation-events-total
+  hidden-misconduct-rate
+  hidden-misconduct-total
+  true-misconduct-this-tick
+  sanctioned-this-tick
+  true-misconduct-prev-tick
+  relative-misconduct-change
+]
+
+employees-own [
+  utility
+  misconduct-propensity
+  fear
+  committed-this-tick?
+  retaliated-this-tick?
+]
+
+to setup
+  clear-all
+  set true-misconduct-total       0
+  set sanctioned-misconduct-total 0
+  set reported-events-total       0
+  set retaliation-events-total    0
+  set hidden-misconduct-rate      0
+  set hidden-misconduct-total     0
+  set true-misconduct-this-tick   0
+  set sanctioned-this-tick        0
+  set true-misconduct-prev-tick   0
+  set relative-misconduct-change  0
+
+  create-employees number-employees [
+    setxy random-xcor random-ycor
+    set shape "person"
+    set size 1.1
+    set utility 0
+    set misconduct-propensity clamp01 (random-normal initial-misconduct-propensity 0.08)
+    set fear                  clamp01 (random-normal initial-fear 0.08)
+    set committed-this-tick?  false
+    set retaliated-this-tick? false
+    recolor-from-fear
+  ]
+  reset-ticks
+end
+
+to go
+  if not any? employees [ stop ]
+
+  set true-misconduct-prev-tick true-misconduct-this-tick
+  set true-misconduct-this-tick 0
+  set sanctioned-this-tick      0
+
+  move-employees
+  misconduct-phase
+  observation-and-reporting-phase
+  drift-phase
+  update-metrics
+  tick
+end
+
+to move-employees
+  ask employees [
+    rt random 50
+    lt random 50
+    fd 1
+  ]
+end
+
+to misconduct-phase
+  ask employees [
+    set committed-this-tick?  false
+    set retaliated-this-tick? false
+    if random-float 1 < misconduct-propensity [
+      set committed-this-tick? true
+      set true-misconduct-this-tick true-misconduct-this-tick + 1
+      set true-misconduct-total     true-misconduct-total     + 1
+      set utility utility + misconduct-gain
+    ]
+  ]
+end
+
+to observation-and-reporting-phase
+  ask employees with [committed-this-tick?] [
+    let offender self
+    let witnesses other employees in-radius 3
+    if any? witnesses [
+      let observer one-of witnesses
+      ask observer [ decide-report offender ]
+    ]
+  ]
+end
+
+to decide-report [offender]
+  let reporting-input (0.1
+    + (0.8 * reporter-protection)
+    - fear
+    + (0.2 * [misconduct-propensity] of offender))
+  let reporting-prob logistic reporting-input
+
+  if random-float 1 < reporting-prob [
+    set reported-events-total reported-events-total + 1
+
+    ;; SANCTIONING: automatic – punishment-value = strength only
+    set sanctioned-this-tick        sanctioned-this-tick        + 1
+    set sanctioned-misconduct-total sanctioned-misconduct-total + 1
+    ask offender [
+      set misconduct-propensity clamp01 (
+        misconduct-propensity
+        - learning-rate * (0.3 + 0.7 * punishment-value))
+    ]
+
+    ;; RETALIATION: probability = (1 - reporter-protection)
+    let retaliation-prob clamp01 (1 - reporter-protection)
+    if random-float 1 < retaliation-prob [
+      set retaliation-events-total retaliation-events-total + 1
+      set retaliated-this-tick? true
+      set fear clamp01 (fear + learning-rate * 0.5 * (1 - reporter-protection))
+      set utility utility - 1.2
+    ]
+  ]
+end
+
+to drift-phase
+  ask employees [
+    if not committed-this-tick? [
+      set misconduct-propensity clamp01 (
+        misconduct-propensity
+        + learning-rate * (initial-misconduct-propensity - misconduct-propensity))
+    ]
+    if not retaliated-this-tick? [
+      set fear clamp01 (fear - learning-rate * 0.03)
+    ]
+    set committed-this-tick?  false
+    set retaliated-this-tick? false
+    recolor-from-fear
+  ]
+end
+
+to recolor-from-fear
+  ifelse fear < 0.33
+  [ set color green + 1 ]
+  [ ifelse fear < 0.66
+    [ set color yellow - 2 ]
+    [ set color orange + 1 ] ]
+end
+
+to update-metrics
+  set hidden-misconduct-total (true-misconduct-total - sanctioned-misconduct-total)
+  ifelse true-misconduct-total > 0
+  [ set hidden-misconduct-rate hidden-misconduct-total / true-misconduct-total ]
+  [ set hidden-misconduct-rate 0 ]
+
+  ifelse true-misconduct-prev-tick > 0
+  [ set relative-misconduct-change
+    ((true-misconduct-this-tick - true-misconduct-prev-tick)
+      / true-misconduct-prev-tick) * 100 ]
+  [ set relative-misconduct-change 0 ]
+end
+
+to-report clamp01 [x]
+  report max (list 0 (min (list 1 x)))
+end
+
+to-report logistic [x]
+  report 1 / (1 + exp (- x))
+end]]></code>
+  <widgets>
+    <view x="240" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-16" height="520" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="520" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
+    <button x="20" y="20" height="33" disableUntilTicks="false" forever="false" kind="Observer" display="setup" width="75" sizeVersion="0">setup</button>
+    <button x="105" y="20" height="33" disableUntilTicks="false" forever="true" kind="Observer" display="go" width="75" sizeVersion="0">go</button>
+    <slider x="20" step="10" y="80" max="400" display="number-employees" height="33" min="20" direction="Horizontal" default="150.0" variable="number-employees" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="118" max="1" display="initial-misconduct-propensity" height="33" min="0" direction="Horizontal" default="0.25" variable="initial-misconduct-propensity" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="156" max="1" display="initial-fear" height="33" min="0" direction="Horizontal" default="0.35" variable="initial-fear" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="194" max="1" display="punishment-value" height="33" min="0" direction="Horizontal" default="0.7" variable="punishment-value" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="232" max="1" display="reporter-protection" height="33" min="0" direction="Horizontal" default="0.45" variable="reporter-protection" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.1" y="270" max="5" display="misconduct-gain" height="33" min="0" direction="Horizontal" default="1.4" variable="misconduct-gain" width="200" sizeVersion="0"></slider>
+    <slider x="20" step="0.01" y="308" max="1" display="learning-rate" height="33" min="0" direction="Horizontal" default="0.2" variable="learning-rate" width="200" sizeVersion="0"></slider>
+    <monitor x="780" precision="17" y="20" height="45" fontSize="11" display="True misconduct (total)" width="200" sizeVersion="0">true-misconduct-total</monitor>
+    <monitor x="780" precision="17" y="70" height="45" fontSize="11" display="Sanctioned misconduct (total)" width="200" sizeVersion="0">sanctioned-misconduct-total</monitor>
+    <monitor x="780" precision="17" y="120" height="45" fontSize="11" display="Hidden misconduct (total)" width="200" sizeVersion="0">hidden-misconduct-total</monitor>
+    <monitor x="780" precision="3" y="170" height="45" fontSize="11" display="Hidden misconduct rate" width="200" sizeVersion="0">hidden-misconduct-rate</monitor>
+    <monitor x="780" precision="17" y="220" height="45" fontSize="11" display="Reported events" width="200" sizeVersion="0">reported-events-total</monitor>
+    <monitor x="780" precision="17" y="270" height="45" fontSize="11" display="Retaliation events" width="200" sizeVersion="0">retaliation-events-total</monitor>
+    <monitor x="780" precision="17" y="320" height="45" fontSize="11" display="True misconduct (tick)" width="200" sizeVersion="0">true-misconduct-this-tick</monitor>
+    <monitor x="780" precision="17" y="370" height="45" fontSize="11" display="Sanctioned (tick)" width="200" sizeVersion="0">sanctioned-this-tick</monitor>
+    <monitor x="780" precision="1" y="420" height="45" fontSize="11" display="Relative change (%)" width="200" sizeVersion="0">relative-misconduct-change</monitor>
+    <plot x="987" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="events" y="9" xMin="0.0" height="221" legend="true" xMax="10.0" yMin="0.0" xAxis="ticks" display="Misconduct Dynamics (Cumulative)" width="454" sizeVersion="0">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="true total" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plot true-misconduct-total</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="sanctioned total" color="-13840069" legend="true">
+        <setup></setup>
+        <update>plot sanctioned-misconduct-total</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="hidden total" color="-955883" legend="true">
+        <setup></setup>
+        <update>plot hidden-misconduct-total</update>
+      </pen>
+    </plot>
+    <plot x="987" autoPlotX="true" yMax="50.0" autoPlotY="true" yAxis="% change" y="234" xMin="0.0" height="219" legend="true" xMax="10.0" yMin="-50.0" xAxis="ticks" display="Relative Misconduct Change (%)" width="455" sizeVersion="0">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="rel. change %" color="-13791810" legend="true">
+        <setup></setup>
+        <update>plot relative-misconduct-change</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="zero" color="-7500403" legend="true">
+        <setup></setup>
+        <update>plot 0</update>
+      </pen>
+    </plot>
+    <plot x="986" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="events / tick" y="457" xMin="0.0" height="221" legend="true" xMax="10.0" yMin="0.0" xAxis="ticks" display="Per Tick Misconduct" width="458" sizeVersion="0">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="true (tick)" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plot true-misconduct-this-tick</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="sanctioned (tick)" color="-13840069" legend="true">
+        <setup></setup>
+        <update>plot sanctioned-this-tick</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="hidden (tick)" color="-955883" legend="true">
+        <setup></setup>
+        <update>plot (true-misconduct-this-tick - sanctioned-this-tick)</update>
+      </pen>
+    </plot>
+  </widgets>
+  <info>## WHAT IS IT?
+
+This model simulates organizational misconduct in a fixed employee population.
+
+The central question is: **When does higher punishment reduce true misconduct, and when does it mainly increase fear and suppress reporting instead?**
+
+Model concept from Group 5: employees may commit misconduct, misconduct may be observed, observers may report, every reported case is sanctioned, and retaliation may follow — feeding back into fear and future reporting behaviour.
+
+## HOW IT WORKS
+
+Each tick represents one abstract time period inside the organisation.
+
+1. **Movement** — employees move and mix locally (changes neighbourhoods and observation chances).
+2. **Misconduct decision** — each employee commits misconduct with probability equal to their `misconduct-propensity`.
+3. **Observation** — nearby coworkers within a fixed radius of 3 patches may observe.
+4. **Reporting** — a random observer decides to report based on their `fear`, the `reporter-protection` level, and the offender's propensity profile (logistic function).
+5. **Sanctioning** — every reported case is sanctioned automatically. `punishment-value` controls **strength** only: how much the offender's propensity drops.
+6. **Retaliation** — retaliation occurs with probability `(1 − reporter-protection)`. The fear increase for the reporter is coupled to `learning-rate`.
+7. **Drift** — propensity mean-reverts toward its starting value; fear decays slowly each tick without retaliation (learning-rate-coupled).
+
+Key outcome: `hidden-misconduct-rate = (true − sanctioned) / true`
+
+## HOW TO USE IT
+
+1. Click **setup**.
+2. Click **go** (forever button).
+3. Vary policy sliders:
+   - `punishment-value` — strength of sanction on offender propensity
+   - `reporter-protection` — reduces retaliation probability and fear accumulation
+4. Observe monitors and three plots:
+   - **Cumulative Dynamics** — total true / sanctioned / hidden over time
+   - **Per Tick Dynamics** — flow rate each tick
+   - **Relative Change (%)** — momentum of true misconduct (stock-like)
+
+**Recommended baseline:** punishment ≈ 0.7, protection ≈ 0.45, fear ≈ 0.35
+
+## THINGS TO NOTICE
+
+- With low `reporter-protection`, retaliation events accumulate, fear rises, and reporting drops — hidden misconduct can grow even as sanctions look stable.
+- `punishment-value` alone cannot suppress misconduct if reporters are deterred by retaliation.
+- The relative-change plot goes negative when the current tick's misconduct is lower than the previous; oscillation around zero is normal in equilibrium.
+
+## THINGS TO TRY
+
+1. **Protection sweep** — fix punishment at 0.7, vary protection 0 → 1.
+2. **Punishment sweep** — fix protection at 0.45, vary punishment 0 → 1.
+3. **Combined policy** — max both; compare hidden-misconduct-rate after 200 ticks.
+4. **Fear trap** — set protection = 0.05, run 100 ticks, then raise protection and observe recovery lag.
+
+## HARDCODED CONSTANTS
+
+The following are fixed in the code (not sliders, to keep the interface focused):
+
+| Constant | Value | Rationale |
+|---|---|---|
+| BASE-REPORTING-CLIMATE | 0.1 | Slightly positive default climate |
+| OBSERVATION-RADIUS | 3 patches | Typical workplace proximity |
+| RETALIATION-COST | 1.2 utility units | Fixed cost per retaliation event |
+
+## EXTENDING THE MODEL
+
+- Add departments with local trust/norm variables.
+- Add compliance capacity limit (backlog, delay).
+- Add anonymity and evidence-quality trade-off.
+- Introduce heterogeneous roles: employees, managers, compliance officers.
+
+## NETLOGO FEATURES
+
+- Local interaction via `in-radius`.
+- Logistic reporting function.
+- Bernoulli misconduct events.
+- Learning-rate-coupled fear dynamics.
+- Three synchronised plots for policy comparison.
+
+## CREDITS AND REFERENCES
+
+Concept: Group 5 — *Agent-Based Simulation of Organisational Misconduct*.
+
+- [NetLogo Tutorial #1](https://docs.netlogo.org/tutorial1)
+- [BIND – Beginner's Interactive NetLogo Dictionary](https://bind.netlogo.org)</info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"></point>
+        <point x="40" y="250"></point>
+        <point x="150" y="205"></point>
+        <point x="260" y="250"></point>
+      </polygon>
+    </shape>
+    <shape name="person" rotatable="false" editableColorIndex="0">
+      <circle x="110" y="5" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="120" y="195"></point>
+        <point x="90" y="285"></point>
+        <point x="105" y="300"></point>
+        <point x="135" y="300"></point>
+        <point x="150" y="225"></point>
+        <point x="165" y="300"></point>
+        <point x="195" y="300"></point>
+        <point x="210" y="285"></point>
+        <point x="180" y="195"></point>
+        <point x="195" y="90"></point>
+      </polygon>
+      <rectangle endX="172" startY="79" marked="true" color="-1920102913" endY="94" startX="127" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="195" y="90"></point>
+        <point x="240" y="150"></point>
+        <point x="225" y="180"></point>
+        <point x="165" y="105"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="60" y="150"></point>
+        <point x="75" y="180"></point>
+        <point x="135" y="105"></point>
+      </polygon>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+        <line x="0.0" visible="true">
+          <dash value="1.0"></dash>
+          <dash value="0.0"></dash>
+        </line>
+        <line x="0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line endX="90" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+          <line endX="210" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+  <previewCommands>setup
+go</previewCommands>
+</model>
