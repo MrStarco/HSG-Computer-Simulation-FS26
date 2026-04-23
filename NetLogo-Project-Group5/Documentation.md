@@ -37,7 +37,7 @@ Every reported case is sanctioned without exception. The `punishment-value` slid
 
 At `punishment-value = 0` the drop is `response-strength × 0.3`; at maximum it is `response-strength × 1.0`.
 
-Punishment also has a **local bystander effect**: employees within `PUNISHMENT-WITNESS-RADIUS = 4` around the offender observe the sanction and reduce their own misconduct propensity by a smaller share:
+Punishment also has a **local bystander effect**: employees within `PUNISHMENT-WITNESS-RADIUS = 6` around the offender observe the sanction and reduce their own misconduct propensity by a smaller share. The larger radius reflects the organisation's intent to send a broad deterrence signal — punishment is public by design:
 
 `bystander_propensity_drop = response-strength × (0.3 + 0.7 × punishment-value) × 0.3`
 
@@ -52,7 +52,7 @@ When retaliation happens, the reporter's fear increases:
 
 Probability falls as protection rises. Retaliation severity rises with `punishment-value` and falls with `reporter-protection`.
 
-Retaliation also has a **local bystander effect**: employees within `RETALIATION-WITNESS-RADIUS = 4` around the reporter observe retaliation and receive a smaller fear increase:
+Retaliation also has a **local bystander effect**: employees within `RETALIATION-WITNESS-RADIUS = 3` around the reporter observe retaliation and receive a smaller fear increase. The radius matches the misconduct observation radius — retaliation is covert and only perceptible to those in immediate proximity:
 
 `bystander_fear_increase = response-strength × (0.2 + 0.8 × punishment-value) × (1 − reporter-protection) × 0.3`
 
@@ -163,8 +163,8 @@ The following parameters are fixed in the code and not exposed as sliders:
 |---|---|---|
 | BASE-REPORTING-CLIMATE | 0.1 | Baseline logit offset for reporting — slightly positive culture |
 | OBSERVATION-RADIUS | 3 patches | Fixed neighbourhood for witness selection |
-| PUNISHMENT-WITNESS-RADIUS | 4 patches | Radius in which others observe punishment and adapt propensity |
-| RETALIATION-WITNESS-RADIUS | 4 patches | Radius in which others observe retaliation and adapt fear |
+| PUNISHMENT-WITNESS-RADIUS | 6 patches | Radius in which others observe punishment — larger because the organisation signals it publicly |
+| RETALIATION-WITNESS-RADIUS | 3 patches | Radius in which others notice retaliation — equals misconduct radius because retaliation is covert |
 | BYSTANDER-EFFECT-FACTOR | 0.3 | Scales indirect punishment/retaliation effects on nearby agents |
 
 ---

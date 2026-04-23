@@ -136,8 +136,8 @@ Diese Werte sind fest im Modellcode hinterlegt und erscheinen deshalb nicht als 
 
 - `BASE-REPORTING-CLIMATE = 0.1`
 - `OBSERVATION-RADIUS = 3`
-- `PUNISHMENT-WITNESS-RADIUS = 4`
-- `RETALIATION-WITNESS-RADIUS = 4`
+- `PUNISHMENT-WITNESS-RADIUS = 6`
+- `RETALIATION-WITNESS-RADIUS = 3`
 - `BYSTANDER-EFFECT-FACTOR = 0.3`
 
 ## 3) Manuelle Einrichtung in NetLogo

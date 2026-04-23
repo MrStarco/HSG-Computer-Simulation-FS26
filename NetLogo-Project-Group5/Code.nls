@@ -4,8 +4,8 @@
 ;; Hardcoded constants (removed from Interface sliders):
 ;;   BASE-REPORTING-CLIMATE  = 0.1
 ;;   OBSERVATION-RADIUS      = 3
-;;   PUNISHMENT-WITNESS-RADIUS = 4
-;;   RETALIATION-WITNESS-RADIUS = 4
+;;   PUNISHMENT-WITNESS-RADIUS = 6
+;;   RETALIATION-WITNESS-RADIUS = 3
 ;;   BYSTANDER-EFFECT-FACTOR = 0.3
 ;;
 ;; Removed sliders:
@@ -172,7 +172,8 @@ to decide-report [offender]
         - response-strength * (0.3 + 0.7 * punishment-value))
     ]
     ;; Nearby agents can notice punishment and adapt behavior too.
-    let punishment-witnesses ([other employees in-radius 4] of offender)
+    ;; Radius 6: organisation actively signals punishment broadly.
+    let punishment-witnesses ([other employees in-radius 6] of offender)
     ask punishment-witnesses [
       set misconduct-propensity clamp01 (
         misconduct-propensity
@@ -196,7 +197,8 @@ to decide-report [offender]
       set fear clamp01 (fear
         + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))
       ;; Nearby agents can notice retaliation and become more fearful too.
-      ask other employees in-radius 4 [
+      ;; Radius 3: retaliation is covert, same visibility as the original misconduct.
+      ask other employees in-radius 3 [
         set retaliated-this-tick? true
         set fear clamp01 (fear
           + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection) * 0.3)
