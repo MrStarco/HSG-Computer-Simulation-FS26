@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<experiments>
+  <experiment name="ExpA_PolicyGrid" repetitions="20" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="500">
+    <setup>setup</setup>
+    <go>go</go>
+    <metrics>
+      <metric>ticks</metric>
+      <metric>true-misconduct-this-tick</metric>
+      <metric>sanctioned-this-tick</metric>
+      <metric>reported-events-this-tick</metric>
+      <metric>retaliation-events-this-tick</metric>
+      <metric>hidden-misconduct-this-tick</metric>
+      <metric>hidden-misconduct-rate-this-tick</metric>
+      <metric>true-misconduct-total</metric>
+      <metric>sanctioned-misconduct-total</metric>
+      <metric>reported-events-total</metric>
+      <metric>retaliation-events-total</metric>
+      <metric>mean [misconduct-propensity] of employees</metric>
+      <metric>mean [fear] of employees</metric>
+      <metric>mean [utility] of employees</metric>
+      <metric>standard-deviation [misconduct-propensity] of employees</metric>
+      <metric>standard-deviation [fear] of employees</metric>
+    </metrics>
+    <constants>
+      <steppedValueSet variable="punishment-value" first="0" step="0.1" last="1"/>
+      <enumeratedValueSet variable="reporter-protection">
+        <value value="0"/>
+        <value value="0.25"/>
+        <value value="0.5"/>
+        <value value="0.75"/>
+        <value value="1"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="number-employees">
+        <value value="150"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-misconduct-propensity">
+        <value value="0.25"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-fear">
+        <value value="0.35"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="learning-rate">
+        <value value="0.2"/>
+      </enumeratedValueSet>
+    </constants>
+  </experiment>
+
+  <experiment name="ExpB_CultureContext" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="500">
+    <setup>setup</setup>
+    <go>go</go>
+    <metrics>
+      <metric>ticks</metric>
+      <metric>true-misconduct-this-tick</metric>
+      <metric>sanctioned-this-tick</metric>
+      <metric>retaliation-events-this-tick</metric>
+      <metric>hidden-misconduct-rate-this-tick</metric>
+      <metric>mean [misconduct-propensity] of employees</metric>
+      <metric>mean [fear] of employees</metric>
+      <metric>mean [utility] of employees</metric>
+    </metrics>
+    <constants>
+      <enumeratedValueSet variable="punishment-value">
+        <value value="0.2"/>
+        <value value="0.5"/>
+        <value value="0.8"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="reporter-protection">
+        <value value="0.2"/>
+        <value value="0.5"/>
+        <value value="0.8"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-misconduct-propensity">
+        <value value="0.15"/>
+        <value value="0.25"/>
+        <value value="0.4"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-fear">
+        <value value="0.15"/>
+        <value value="0.35"/>
+        <value value="0.55"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="number-employees">
+        <value value="150"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="learning-rate">
+        <value value="0.2"/>
+      </enumeratedValueSet>
+    </constants>
+  </experiment>
+
+  <experiment name="ExpC_MechanismTrace" repetitions="30" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="500">
+    <setup>setup</setup>
+    <go>go</go>
+    <metrics>
+      <metric>ticks</metric>
+      <metric>true-misconduct-this-tick</metric>
+      <metric>sanctioned-this-tick</metric>
+      <metric>reported-events-this-tick</metric>
+      <metric>retaliation-events-this-tick</metric>
+      <metric>hidden-misconduct-this-tick</metric>
+      <metric>hidden-misconduct-rate-this-tick</metric>
+      <metric>mean [misconduct-propensity] of employees</metric>
+      <metric>mean [fear] of employees</metric>
+      <metric>mean [utility] of employees</metric>
+      <metric>standard-deviation [misconduct-propensity] of employees</metric>
+      <metric>standard-deviation [fear] of employees</metric>
+    </metrics>
+    <constants>
+      <enumeratedValueSet variable="punishment-value">
+        <value value="0.3"/>
+        <value value="0.7"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="reporter-protection">
+        <value value="0.2"/>
+        <value value="0.5"/>
+        <value value="0.8"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="number-employees">
+        <value value="150"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-misconduct-propensity">
+        <value value="0.25"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-fear">
+        <value value="0.35"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="learning-rate">
+        <value value="0.2"/>
+      </enumeratedValueSet>
+    </constants>
+  </experiment>
+
+  <experiment name="ExpD_LearningRateSensitivity" repetitions="15" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="500">
+    <setup>setup</setup>
+    <go>go</go>
+    <metrics>
+      <metric>ticks</metric>
+      <metric>true-misconduct-this-tick</metric>
+      <metric>sanctioned-this-tick</metric>
+      <metric>retaliation-events-this-tick</metric>
+      <metric>hidden-misconduct-rate-this-tick</metric>
+      <metric>mean [misconduct-propensity] of employees</metric>
+      <metric>mean [fear] of employees</metric>
+    </metrics>
+    <constants>
+      <enumeratedValueSet variable="punishment-value">
+        <value value="0.3"/>
+        <value value="0.6"/>
+        <value value="0.9"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="reporter-protection">
+        <value value="0.3"/>
+        <value value="0.9"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="learning-rate">
+        <value value="0.05"/>
+        <value value="0.2"/>
+        <value value="0.4"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="number-employees">
+        <value value="150"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-misconduct-propensity">
+        <value value="0.25"/>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-fear">
+        <value value="0.35"/>
+      </enumeratedValueSet>
+    </constants>
+  </experiment>
+</experiments>
