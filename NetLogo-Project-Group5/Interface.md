@@ -46,11 +46,17 @@ Dieses Dokument beschreibt alle Widgets, die fuer das Modell benoetigt werden, p
    - Increment: `0.01`
    - Default: `0.45`
 
-6. `learning-rate`
+6. `response-strength`
    - Min: `0`
    - Max: `1`
    - Increment: `0.01`
    - Default: `0.20`
+
+7. `drift-speed`
+   - Min: `0.01`
+   - Max: `0.5`
+   - Increment: `0.01`
+   - Default: `0.05`
 
 ### Monitors
 
@@ -130,8 +136,9 @@ Diese Werte sind fest im Modellcode hinterlegt und erscheinen deshalb nicht als 
 
 - `BASE-REPORTING-CLIMATE = 0.1`
 - `OBSERVATION-RADIUS = 3`
-- `RETALIATION-COST = 1.2`
-- `MISCONDUCT-GAIN = 1.4`
+- `PUNISHMENT-WITNESS-RADIUS = 4`
+- `RETALIATION-WITNESS-RADIUS = 4`
+- `BYSTANDER-EFFECT-FACTOR = 0.3`
 
 ## 3) Manuelle Einrichtung in NetLogo
 

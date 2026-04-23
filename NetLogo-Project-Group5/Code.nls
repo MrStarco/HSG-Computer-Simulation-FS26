@@ -4,8 +4,9 @@
 ;; Hardcoded constants (removed from Interface sliders):
 ;;   BASE-REPORTING-CLIMATE  = 0.1
 ;;   OBSERVATION-RADIUS      = 3
-;;   RETALIATION-COST        = 1.2
-;;   MISCONDUCT-GAIN         = 1.4
+;;   PUNISHMENT-WITNESS-RADIUS = 4
+;;   RETALIATION-WITNESS-RADIUS = 4
+;;   BYSTANDER-EFFECT-FACTOR = 0.3
 ;;
 ;; Removed sliders:
 ;;   base-reporting-climate, observation-radius,
@@ -17,7 +18,7 @@
 ;;   - punishment-value controls STRENGTH of propensity drop only
 ;;   - Retaliation probability = (1 - reporter-protection)
 ;;   - Retaliation strength increases with punishment-value
-;;   - Fear COUPLED with learning-rate: rises on retaliation, decays
+;;   - Fear COUPLED with response-strength: rises on retaliation, decays
 ;;     slowly every tick without retaliation  (no more global drift)
 ;;   - Two new plots: Per Tick Dynamics + Relative Change (%)
 ;; ============================================================
@@ -42,7 +43,6 @@ globals [
 ]
 
 employees-own [
-  utility
   misconduct-propensity
   fear
   committed-this-tick?
@@ -73,7 +73,6 @@ to setup
     setxy random-xcor random-ycor
     set shape "person"
     set size 1.1
-    set utility 0
     set misconduct-propensity clamp01 (random-normal initial-misconduct-propensity 0.08)
     set fear                  clamp01 (random-normal initial-fear 0.08)
     set committed-this-tick?  false
@@ -127,7 +126,6 @@ to misconduct-phase
       set committed-this-tick? true
       set true-misconduct-this-tick true-misconduct-this-tick + 1
       set true-misconduct-total     true-misconduct-total     + 1
-      set utility utility + 1.4      ;; MISCONDUCT-GAIN (hardcoded)
     ]
   ]
 end
@@ -163,35 +161,46 @@ to decide-report [offender]
     ;; --------------------------------------------------------
     ;; SANCTIONING – automatic (no probability gate).
     ;; punishment-value = STRENGTH of propensity reduction only.
-    ;; Drop scales from learning-rate*0.3 (punishment=0)
-    ;;                  to learning-rate*1.0 (punishment=1).
+    ;; Drop scales from response-strength*0.3 (punishment=0)
+    ;;                  to response-strength*1.0 (punishment=1).
     ;; --------------------------------------------------------
     set sanctioned-this-tick        sanctioned-this-tick        + 1
     set sanctioned-misconduct-total sanctioned-misconduct-total + 1
     ask offender [
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - learning-rate * (0.3 + 0.7 * punishment-value))
+        - response-strength * (0.3 + 0.7 * punishment-value))
+    ]
+    ;; Nearby agents can notice punishment and adapt behavior too.
+    let punishment-witnesses ([other employees in-radius 4] of offender)
+    ask punishment-witnesses [
+      set misconduct-propensity clamp01 (
+        misconduct-propensity
+        - response-strength * (0.3 + 0.7 * punishment-value) * 0.3)
     ]
 
     ;; --------------------------------------------------------
     ;; RETALIATION – triggered on every report.
     ;; Probability = (1 - reporter-protection)  [prob falls as protection rises]
-    ;; Fear increase is learning-rate-coupled + modulated by
+    ;; Fear increase is response-strength-coupled + modulated by
     ;; protection and punishment-value (stronger punishment can trigger
     ;; stronger retaliation pressure).
-    ;; RETALIATION-COST hardcoded = 1.2
     ;; --------------------------------------------------------
     let retaliation-prob clamp01 (1 - reporter-protection)
     if random-float 1 < retaliation-prob [
       set retaliation-events-total retaliation-events-total + 1
       set retaliation-events-this-tick retaliation-events-this-tick + 1
       set retaliated-this-tick? true
-      ;; Fear jumps upward; coupling via learning-rate means slow learners
+      ;; Fear jumps upward; coupling via response-strength means slow learners
       ;; accumulate fear less aggressively.
       set fear clamp01 (fear
-        + learning-rate * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))
-      set utility utility - 1.2    ;; RETALIATION-COST
+        + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))
+      ;; Nearby agents can notice retaliation and become more fearful too.
+      ask other employees in-radius 4 [
+        set retaliated-this-tick? true
+        set fear clamp01 (fear
+          + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection) * 0.3)
+      ]
     ]
   ]
 end
@@ -201,21 +210,24 @@ end
 ;; ============================================================
 to drift-phase
   ask employees [
-    ;; Misconduct propensity: mean-reversion toward initial value
-    ;; only if agent did NOT commit this tick (reward/punishment handled above)
+    ;; Misconduct propensity: mean-reversion toward initial value.
+    ;; Speed is controlled by drift-speed (separate from response-strength),
+    ;; so recovery is slower than the event-driven drop from sanctions.
+    ;; Only applies if agent did NOT commit this tick.
     if not committed-this-tick? [
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        + learning-rate * (initial-misconduct-propensity - misconduct-propensity))
+        + drift-speed * (initial-misconduct-propensity - misconduct-propensity))
     ]
 
-    ;; FEAR COUPLED WITH LEARNING-RATE:
-    ;;   - Goes UP during retaliation (handled in decide-report above).
-    ;;   - Decays slowly when NOT retaliated against this tick.
-    ;;   - Higher learning-rate = faster both ways.
-    ;;   This prevents fear from accumulating to 1 with no off-ramp.
+    ;; FEAR DRIFT:
+    ;;   - Goes UP during retaliation (handled in decide-report, scaled by response-strength).
+    ;;   - Mean-reverts toward initial-fear when NOT retaliated against this tick.
+    ;;   - Controlled by drift-speed so recovery is slower than the fear spike.
     if not retaliated-this-tick? [
-      set fear clamp01 (fear - learning-rate * 0.03)
+      set fear clamp01 (
+        fear
+        + drift-speed * (initial-fear - fear))
     ]
 
     set committed-this-tick?  false

@@ -18,7 +18,7 @@ Each tick represents one abstract time period inside the organisation.
 Employees move randomly within their local neighbourhood. This changes who can observe whom, introducing natural variation in observation opportunities.
 
 **2. Misconduct Decision**
-Each employee commits misconduct with a probability equal to their individual `misconduct-propensity`. This is a Bernoulli draw each tick. If misconduct occurs, the employee gains a fixed utility value of 1.4.
+Each employee commits misconduct with a probability equal to their individual `misconduct-propensity`. This is a Bernoulli draw each tick.
 
 **3. Observation**
 Employees who committed misconduct are observed by coworkers within a fixed radius of 3 patches (hardcoded). A single random witness is selected per offender.
@@ -33,9 +33,13 @@ Higher protection and lower fear increase reporting probability. The constant 0.
 **5. Sanctioning — Automatic, Strength-Variable**
 Every reported case is sanctioned without exception. The `punishment-value` slider controls the strength of the sanction: how much the offender's misconduct propensity drops.
 
-`propensity_drop = learning-rate × (0.3 + 0.7 × punishment-value)`
+`propensity_drop = response-strength × (0.3 + 0.7 × punishment-value)`
 
-At `punishment-value = 0` the drop is `learning-rate × 0.3`; at maximum it is `learning-rate × 1.0`.
+At `punishment-value = 0` the drop is `response-strength × 0.3`; at maximum it is `response-strength × 1.0`.
+
+Punishment also has a **local bystander effect**: employees within `PUNISHMENT-WITNESS-RADIUS = 4` around the offender observe the sanction and reduce their own misconduct propensity by a smaller share:
+
+`bystander_propensity_drop = response-strength × (0.3 + 0.7 × punishment-value) × 0.3`
 
 **6. Retaliation**
 After every report, retaliation against the reporter occurs with probability:
@@ -44,15 +48,23 @@ After every report, retaliation against the reporter occurs with probability:
 
 When retaliation happens, the reporter's fear increases:
 
-`fear_increase = learning-rate × (0.2 + 0.8 × punishment-value) × (1 − reporter-protection)`
+`fear_increase = response-strength × (0.2 + 0.8 × punishment-value) × (1 − reporter-protection)`
 
-Probability falls as protection rises. Retaliation severity rises with `punishment-value` and falls with `reporter-protection`. Retaliation costs the reporter 1.2 utility units (hardcoded).
+Probability falls as protection rises. Retaliation severity rises with `punishment-value` and falls with `reporter-protection`.
+
+Retaliation also has a **local bystander effect**: employees within `RETALIATION-WITNESS-RADIUS = 4` around the reporter observe retaliation and receive a smaller fear increase:
+
+`bystander_fear_increase = response-strength × (0.2 + 0.8 × punishment-value) × (1 − reporter-protection) × 0.3`
+
+Observed retaliation also sets the bystander's retaliation flag for the current tick, so this fear increase is not immediately offset by same-tick fear mean-reversion.
 
 **7. Drift and Fear Decay**
 In each tick's drift phase two things happen for every employee:
 
-- **Misconduct propensity** mean-reverts toward its personal starting value (if no misconduct was committed this tick). This prevents permanent collapse or runaway growth.
-- **Fear decays** slowly when the employee was *not* retaliated against this tick: `fear_drop = learning-rate × 0.03`. Fear can therefore decrease over time — it only accumulates when retaliation actually occurs. Both the rise and the fall are coupled to `learning-rate`.
+- **Misconduct propensity** mean-reverts toward its personal starting value (if no misconduct was committed this tick), at speed `drift-speed`. This prevents permanent collapse or runaway growth.
+- **Fear mean-reverts** toward `initial-fear` when the employee was *not* retaliated against this tick:
+  `fear_next = fear + drift-speed × (initial-fear − fear)`.
+  Fear therefore moves back toward baseline in both directions, with speed controlled by `drift-speed` and current distance to baseline.
 
 **Agent colours** reflect current fear level:
 - 🟢 Green — fear below 0.33 (low)
@@ -85,7 +97,8 @@ Because every reported case is sanctioned, hidden misconduct equals *unreported*
 | initial-fear | 0.35 |
 | punishment-value | 0.70 |
 | reporter-protection | 0.45 |
-| learning-rate | 0.20 |
+| response-strength | 0.20 |
+| drift-speed | 0.05 |
 
 ---
 
@@ -138,7 +151,7 @@ Set `reporter-protection = 0.45` (fixed). Run three scenarios: `punishment-value
 Set `reporter-protection = 0.05`. Run 100 ticks until fear is high across the population. Then raise protection to 0.80. Observe the recovery lag: it takes time for fear to decay and reporting to recover, even after protection improves.
 
 **4. Learning-rate sensitivity**
-Keep all other sliders at default. Compare `learning-rate = 0.05` vs `learning-rate = 0.40`. Fast learners respond strongly to each sanction or retaliation; slow learners average out experience over time and are more resistant to short-term shocks.
+Keep all other sliders at default. Compare `response-strength = 0.05` vs `response-strength = 0.40`. Fast learners respond strongly to each sanction or retaliation; slow learners average out experience over time and are more resistant to short-term shocks.
 
 ---
 
@@ -150,8 +163,9 @@ The following parameters are fixed in the code and not exposed as sliders:
 |---|---|---|
 | BASE-REPORTING-CLIMATE | 0.1 | Baseline logit offset for reporting — slightly positive culture |
 | OBSERVATION-RADIUS | 3 patches | Fixed neighbourhood for witness selection |
-| RETALIATION-COST | 1.2 utility units | Fixed utility penalty for a retaliated reporter |
-| MISCONDUCT-GAIN | 1.4 utility units | Fixed utility gain for a misconduct event |
+| PUNISHMENT-WITNESS-RADIUS | 4 patches | Radius in which others observe punishment and adapt propensity |
+| RETALIATION-WITNESS-RADIUS | 4 patches | Radius in which others observe retaliation and adapt fear |
+| BYSTANDER-EFFECT-FACTOR | 0.3 | Scales indirect punishment/retaliation effects on nearby agents |
 
 ---
 

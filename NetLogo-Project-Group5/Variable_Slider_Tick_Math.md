@@ -10,7 +10,6 @@ Jeder `employee` besitzt:
 
 - `misconduct-propensity` in `[0,1]`: individuelle Wahrscheinlichkeit fuer Fehlverhalten.
 - `fear` in `[0,1]`: senkt die Wahrscheinlichkeit, Fehlverhalten zu melden.
-- `utility`: akkumuliert Nutzen/Kosten aus Ereignissen.
 - `committed-this-tick?`: Flag, ob der Agent im aktuellen Tick Fehlverhalten begangen hat.
 - `retaliated-this-tick?`: Flag, ob der Agent im aktuellen Tick Vergeltung erlebt hat.
 
@@ -42,8 +41,9 @@ Diese Werte sind fest im Code hinterlegt:
 
 - `BASE-REPORTING-CLIMATE = 0.1`
 - `OBSERVATION-RADIUS = 3`
-- `RETALIATION-COST = 1.2`
-- `MISCONDUCT-GAIN = 1.4`
+- `PUNISHMENT-WITNESS-RADIUS = 4`
+- `RETALIATION-WITNESS-RADIUS = 4`
+- `BYSTANDER-EFFECT-FACTOR = 0.3`
 
 ## 3) Tick-Ablauf (in Reihenfolge)
 
@@ -80,7 +80,7 @@ Bei Commit:
 
 - `true-misconduct-this-tick += 1`
 - `true-misconduct-total += 1`
-- `utility_i += 1.4`
+
 
 ### 3.3 Beobachtung und Reporting
 
@@ -110,12 +110,16 @@ Sanktionierung erfolgt bei jedem Report automatisch:
 
 Update fuer den Offender `j`:
 
-`misconduct-propensity_j = clamp01(misconduct-propensity_j - learning-rate * (0.3 + 0.7 * punishment-value))`
+`misconduct-propensity_j = clamp01(misconduct-propensity_j - response-strength * (0.3 + 0.7 * punishment-value))`
+
+Zusatz fuer Beobachter im `PUNISHMENT-WITNESS-RADIUS` um den Offender:
+
+`misconduct-propensity_w = clamp01(misconduct-propensity_w - response-strength * (0.3 + 0.7 * punishment-value) * 0.3)`
 
 Interpretation:
 
-- Bei `punishment-value = 0`: Absenkung um `learning-rate * 0.3`
-- Bei `punishment-value = 1`: Absenkung um `learning-rate * 1.0`
+- Bei `punishment-value = 0`: Absenkung um `response-strength * 0.3`
+- Bei `punishment-value = 1`: Absenkung um `response-strength * 1.0`
 
 ### 3.5 Retaliation (nach Report)
 
@@ -127,8 +131,12 @@ Wenn Retaliation eintritt (beim Beobachter `k`):
 
 - `retaliation-events-total += 1`
 - `retaliated-this-tick? = true`
-- `fear_k = clamp01(fear_k + learning-rate * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))`
-- `utility_k -= 1.2`
+- `fear_k = clamp01(fear_k + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))`
+Zusatz fuer Beobachter im `RETALIATION-WITNESS-RADIUS` um den Reporter:
+
+`fear_w = clamp01(fear_w + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection) * 0.3)`
+
+Dabei wird fuer diese Beobachter ebenfalls `retaliated-this-tick? = true` gesetzt, sodass in der Drift-Phase im selben Tick keine Fear-Mean-Reversion angewendet wird.
 
 ### 3.6 Drift-Phase
 
@@ -136,11 +144,15 @@ Fuer jeden Agenten `i`:
 
 1. **Mean-Reversion der Fehlverhaltensneigung** (nur wenn kein Commit in diesem Tick):
 
-`m_i(t+1) = clamp01(m_i(t) + learning-rate * (initial-misconduct-propensity - m_i(t)))`
+`m_i(t+1) = clamp01(m_i(t) + drift-speed * (initial-misconduct-propensity - m_i(t)))`
 
-2. **Fear-Decay** (nur wenn keine Retaliation in diesem Tick):
+2. **Fear-Mean-Reversion** (nur wenn keine Retaliation in diesem Tick):
 
-`fear_i(t+1) = clamp01(fear_i(t) - learning-rate * 0.03)`
+`fear_i(t+1) = clamp01(fear_i(t) + drift-speed * (initial-fear - fear_i(t)))`
+
+`drift-speed` steuert die Erholungsgeschwindigkeit unabhaengig von `response-strength`.
+`response-strength` steuert nur die ereignisgetriebenen Spruenge (Sanktionen, Retaliation).
+Damit kann die Erholung deutlich langsamer eingestellt werden als die Reaktion auf Ereignisse.
 
 Damit ist Fear eventgetrieben nach oben und ohne neues Ereignis langsam ruecklaeufig.
 
@@ -181,7 +193,8 @@ Tick-basierte Hidden-Misconduct-Kennzahlen:
 | `initial-fear` | Startwert von `fear_i` | Niedrigere Anfangs-Reportingbereitschaft bei hohem Wert |
 | `punishment-value` | Absenkung von `misconduct-propensity` nach Sanktion und Fear-Anstieg bei Retaliation | Hoehere Sanktionsstaerke und staerkere Retaliation bei hohem Wert |
 | `reporter-protection` | Reporting-Input, `p_ret`, Fear-Anstieg bei Retaliation | Mehr Reporting und weniger Retaliation/Fear-Anstieg |
-| `learning-rate` | Updates von Propensity und Fear | Steuert Geschwindigkeit aller Anpassungsprozesse |
+| `response-strength` | Ereignisgetriebene Updates (Sanktion, Retaliation) | Steuert Staerke der Reaktion auf Einzelereignisse |
+| `drift-speed` | Mean-Reversion in der Drift-Phase | Steuert Erholungsgeschwindigkeit zurueck zum Ausgangswert; unabhaengig von response-strength |
 
 ## 5) Dynamik ueber viele Ticks (Intuition)
 
