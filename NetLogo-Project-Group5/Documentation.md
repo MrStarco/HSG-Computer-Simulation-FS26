@@ -26,9 +26,13 @@ Employees who committed misconduct are observed by coworkers within a fixed radi
 **4. Reporting Decision**
 The witness decides whether to report using a logistic function:
 
-`p_report = logistic(0.1 + 0.8 × reporter-protection − fear + 0.2 × offender-propensity)`
+`p_report = logistic(0.1 + 0.8 × reporter-protection − fear)`
 
-Higher protection and lower fear increase reporting probability. The constant 0.1 reflects a slightly positive baseline climate (hardcoded).
+with:
+
+`logistic(x) = 1 / (1 + exp(−5x))`
+
+Higher protection and lower fear increase reporting probability. The constant 0.1 reflects a slightly positive baseline climate (hardcoded). The steepness factor (`5`) makes reporting more threshold-like around the center.
 
 **5. Sanctioning — Automatic, Strength-Variable**
 Every reported case is sanctioned without exception. The `punishment-value` slider controls the strength of the sanction: how much the offender's misconduct propensity drops.
@@ -87,18 +91,39 @@ Because every reported case is sanctioned, hidden misconduct equals *unreported*
    - `punishment-value` — sanction strength and retaliation severity
    - `reporter-protection` — reduces retaliation probability and fear accumulation
 4. Observe the three plots and the monitors.
+5. For batch experiments, use **Tools -> BehaviorSpace** and run one of the integrated experiment sets (`exp1_*`, `exp2_*`, `exp3*`).
 
-**Recommended baseline settings:**
+**Recommended baseline settings for reproducible experiments:**
 
 | Slider | Recommended default |
 |---|---|
-| number-employees | 150 |
-| initial-misconduct-propensity | 0.25 |
-| initial-fear | 0.35 |
-| punishment-value | 0.70 |
-| reporter-protection | 0.45 |
+| number-employees | 200 |
+| initial-misconduct-propensity | 0.40 |
+| initial-fear | 0.30 |
+| punishment-value | 0.66 |
+| reporter-protection | 0.50 |
 | response-strength | 0.20 |
-| drift-speed | 0.05 |
+| drift-speed | 0.15 |
+
+The interface defaults in the `.nlogox` file are intentionally stress-test oriented; the table above is the recommended baseline for policy analysis and for matching experiment outputs.
+
+---
+
+## EXPERIMENT PIPELINE (INTEGRATED)
+
+The project now includes a full experiment pipeline:
+
+1. Run BehaviorSpace experiments embedded in `Group5_Misconduct_ABM.nlogox`.
+2. Export results as **Table CSV** files.
+3. Analyze and visualize with:
+   - `NetLogo-Project-Group5/Experiments/analyze_all_experiments.py`
+4. Use sample figures in:
+   - `NetLogo-Project-Group5/Experiments/Sample Output Plots/`
+
+The analysis script expects:
+
+- `CSV_FOLDER` set to your export directory
+- `PREFIX` matching the NetLogo export filename prefix (default target: `Group5_Misconduct_ABM_EXPERIMENTS_V1 `)
 
 ---
 
@@ -184,10 +209,11 @@ The following parameters are fixed in the code and not exposed as sliders:
 
 - One breed (`employees`) with evolving internal attributes.
 - Local interaction via `in-radius` for witness selection.
-- Logistic reporting function for nonlinear probability.
+- Steeper logistic reporting function (`1 / (1 + exp(-5x))`) for nonlinear threshold dynamics.
 - Bernoulli misconduct events drawn each tick.
 - Learning-rate-coupled fear dynamics (both rise and decay).
 - Three synchronised plots for policy comparison across runs.
+- Built-in BehaviorSpace experiment suites (policy grid, Pareto trade-offs, OFAT sensitivity).
 
 ---
 

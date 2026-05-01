@@ -38,20 +38,17 @@ globals [
   retaliation-events-this-tick
   hidden-misconduct-this-tick
   hidden-misconduct-rate-this-tick
-  true-misconduct-prev-tick    ;; carries over from last tick for % calc
-  relative-misconduct-change   ;; stock-like % change vs. previous tick
+  true-misconduct-prev-tick
+  relative-misconduct-change
 ]
 
 employees-own [
   misconduct-propensity
   fear
   committed-this-tick?
-  retaliated-this-tick?        ;; flag: was this observer retaliated against this tick?
+  retaliated-this-tick?
 ]
 
-;; ============================================================
-;; SETUP
-;; ============================================================
 to setup
   clear-all
   set true-misconduct-total       0
@@ -82,13 +79,10 @@ to setup
   reset-ticks
 end
 
-;; ============================================================
-;; MAIN LOOP
-;; ============================================================
 to go
   if not any? employees [ stop ]
 
-  set true-misconduct-prev-tick true-misconduct-this-tick   ;; snapshot before reset
+  set true-misconduct-prev-tick true-misconduct-this-tick
   set true-misconduct-this-tick 0
   set sanctioned-this-tick      0
   set reported-events-this-tick 0
@@ -104,9 +98,6 @@ to go
   tick
 end
 
-;; ============================================================
-;; MOVEMENT
-;; ============================================================
 to move-employees
   ask employees [
     rt random 50
@@ -115,9 +106,6 @@ to move-employees
   ]
 end
 
-;; ============================================================
-;; MISCONDUCT DECISION
-;; ============================================================
 to misconduct-phase
   ask employees [
     set committed-this-tick?  false
@@ -130,13 +118,9 @@ to misconduct-phase
   ]
 end
 
-;; ============================================================
-;; OBSERVATION + REPORTING
-;; ============================================================
 to observation-and-reporting-phase
   ask employees with [committed-this-tick?] [
     let offender self
-    ;; OBSERVATION-RADIUS hardcoded = 3
     let witnesses other employees in-radius 3
     if any? witnesses [
       let observer one-of witnesses
@@ -146,30 +130,23 @@ to observation-and-reporting-phase
 end
 
 to decide-report [offender]
-  ;; Reporting probability via logistic:
-  ;;   BASE-REPORTING-CLIMATE hardcoded = 0.1
   let reporting-input (0.1
     + (0.8 * reporter-protection)
-    - fear
-    + (0.2 * [misconduct-propensity] of offender))
+    - fear)
+;    + (0.2 * [misconduct-propensity] of offender))  ;; REmove *****
   let reporting-prob logistic reporting-input
 
   if random-float 1 < reporting-prob [
     set reported-events-total reported-events-total + 1
     set reported-events-this-tick reported-events-this-tick + 1
 
-    ;; --------------------------------------------------------
-    ;; SANCTIONING – automatic (no probability gate).
-    ;; punishment-value = STRENGTH of propensity reduction only.
-    ;; Drop scales from response-strength*0.3 (punishment=0)
-    ;;                  to response-strength*1.0 (punishment=1).
-    ;; --------------------------------------------------------
+    ;; SANCTIONING: automatic – punishment-value = strength only
     set sanctioned-this-tick        sanctioned-this-tick        + 1
     set sanctioned-misconduct-total sanctioned-misconduct-total + 1
     ask offender [
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - response-strength * (0.3 + 0.7 * punishment-value))
+        - response-strength * (0.3 + 0.7 * punishment-value))  ;; ASK CLAUDE. Ex. add stochastic punishment probability *****
     ]
     ;; Nearby agents can notice punishment and adapt behavior too.
     ;; Radius 6: organisation actively signals punishment broadly.
@@ -180,20 +157,16 @@ to decide-report [offender]
         - response-strength * (0.3 + 0.7 * punishment-value) * 0.3)
     ]
 
-    ;; --------------------------------------------------------
-    ;; RETALIATION – triggered on every report.
-    ;; Probability = (1 - reporter-protection)  [prob falls as protection rises]
+    ;; RETALIATION – probability = (1 - reporter-protection)
     ;; Fear increase is response-strength-coupled + modulated by
-    ;; protection and punishment-value (stronger punishment can trigger
+    ;; protection and punishment-value (stronger punishment triggers
     ;; stronger retaliation pressure).
-    ;; --------------------------------------------------------
+    ;; Retaliation strength rises with punishment-value
     let retaliation-prob clamp01 (1 - reporter-protection)
     if random-float 1 < retaliation-prob [
       set retaliation-events-total retaliation-events-total + 1
       set retaliation-events-this-tick retaliation-events-this-tick + 1
       set retaliated-this-tick? true
-      ;; Fear jumps upward; coupling via response-strength means slow learners
-      ;; accumulate fear less aggressively.
       set fear clamp01 (fear
         + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))
       ;; Nearby agents can notice retaliation and become more fearful too.
@@ -207,40 +180,24 @@ to decide-report [offender]
   ]
 end
 
-;; ============================================================
-;; DRIFT PHASE  –  propensity mean-reversion + fear decay
-;; ============================================================
 to drift-phase
   ask employees [
-    ;; Misconduct propensity: mean-reversion toward initial value.
-    ;; Speed is controlled by drift-speed (separate from response-strength),
-    ;; so recovery is slower than the event-driven drop from sanctions.
-    ;; Only applies if agent did NOT commit this tick.
     if not committed-this-tick? [
       set misconduct-propensity clamp01 (
         misconduct-propensity
         + drift-speed * (initial-misconduct-propensity - misconduct-propensity))
     ]
-
-    ;; FEAR DRIFT:
-    ;;   - Goes UP during retaliation (handled in decide-report, scaled by response-strength).
-    ;;   - Mean-reverts toward initial-fear when NOT retaliated against this tick.
-    ;;   - Controlled by drift-speed so recovery is slower than the fear spike.
     if not retaliated-this-tick? [
       set fear clamp01 (
         fear
         + drift-speed * (initial-fear - fear))
     ]
-
     set committed-this-tick?  false
     set retaliated-this-tick? false
     recolor-from-fear
   ]
 end
 
-;; ============================================================
-;; COLOUR CODING  (green < 0.33 | yellow < 0.66 | orange)
-;; ============================================================
 to recolor-from-fear
   ifelse fear < 0.33
   [ set color green + 1 ]
@@ -249,9 +206,6 @@ to recolor-from-fear
     [ set color orange + 1 ] ]
 end
 
-;; ============================================================
-;; METRICS
-;; ============================================================
 to update-metrics
   set hidden-misconduct-this-tick (true-misconduct-this-tick - sanctioned-this-tick)
   ifelse true-misconduct-this-tick > 0
@@ -259,13 +213,11 @@ to update-metrics
       hidden-misconduct-this-tick / true-misconduct-this-tick ]
   [ set hidden-misconduct-rate-this-tick 0 ]
 
-  ;; Cumulative hidden = all misconduct that was never reported/sanctioned
   set hidden-misconduct-total (true-misconduct-total - sanctioned-misconduct-total)
   ifelse true-misconduct-total > 0
   [ set hidden-misconduct-rate hidden-misconduct-total / true-misconduct-total ]
   [ set hidden-misconduct-rate 0 ]
 
-  ;; Relative change vs. previous tick (stock-like, in %)
   ifelse true-misconduct-prev-tick > 0
   [ set relative-misconduct-change
     ((true-misconduct-this-tick - true-misconduct-prev-tick)
@@ -273,13 +225,14 @@ to update-metrics
   [ set relative-misconduct-change 0 ]
 end
 
-;; ============================================================
-;; HELPER REPORTERS
-;; ============================================================
 to-report clamp01 [x]
   report max (list 0 (min (list 1 x)))
 end
 
+;to-report logistic [x]
+;  report 1 / (1 + exp (- x))
+;end
+
 to-report logistic [x]
-  report 1 / (1 + exp (- x))
+  report 1 / (1 + exp (- 5 * x))
 end

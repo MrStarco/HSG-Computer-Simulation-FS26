@@ -1,19 +1,19 @@
-# Variablen-, Slider- und Tick-Mathematik Dokumentation
+# Variables, Sliders, and Tick Mathematics
 
-Dieses Dokument beschreibt die Mathematik der aktuellen Modellimplementierung und die Wirkung der aktiven Slider.
+This document describes the current model mathematics implemented in `Group5_Misconduct_ABM.nlogox` and mirrored in `Code.nls`.
 
-## 1) Kernvariablen
+## 1) Core Variables
 
-### 1.1 Agent-Variablen (`employees-own`)
+### 1.1 Agent Variables (`employees-own`)
 
-Jeder `employee` besitzt:
+Each `employee` has:
 
-- `misconduct-propensity` in `[0,1]`: individuelle Wahrscheinlichkeit fuer Fehlverhalten.
-- `fear` in `[0,1]`: senkt die Wahrscheinlichkeit, Fehlverhalten zu melden.
-- `committed-this-tick?`: Flag, ob der Agent im aktuellen Tick Fehlverhalten begangen hat.
-- `retaliated-this-tick?`: Flag, ob der Agent im aktuellen Tick Vergeltung erlebt hat.
+- `misconduct-propensity` in `[0,1]`: probability of committing misconduct.
+- `fear` in `[0,1]`: lowers reporting willingness.
+- `committed-this-tick?`: whether misconduct was committed this tick.
+- `retaliated-this-tick?`: whether retaliation was experienced this tick.
 
-### 1.2 Globale Zaehler (`globals`)
+### 1.2 Global Counters (`globals`)
 
 - `true-misconduct-total`
 - `sanctioned-misconduct-total`
@@ -30,14 +30,14 @@ Jeder `employee` besitzt:
 - `true-misconduct-prev-tick`
 - `relative-misconduct-change`
 
-### 1.3 Hilfsfunktionen
+### 1.3 Helper Reporters
 
 - `clamp01(x) = max(0, min(1, x))`
-- `logistic(x) = 1 / (1 + exp(-x))`
+- `logistic(x) = 1 / (1 + exp(-5 * x))`
 
-## 2) Hardcoded Modellkonstanten
+## 2) Hardcoded Constants
 
-Diese Werte sind fest im Code hinterlegt:
+These values are fixed in code:
 
 - `BASE-REPORTING-CLIMATE = 0.1`
 - `OBSERVATION-RADIUS = 3`
@@ -45,180 +45,167 @@ Diese Werte sind fest im Code hinterlegt:
 - `RETALIATION-WITNESS-RADIUS = 3`
 - `BYSTANDER-EFFECT-FACTOR = 0.3`
 
-## 3) Tick-Ablauf (in Reihenfolge)
+## 3) Tick Sequence
 
-Pro Tick laeuft `go` in dieser Sequenz:
+Each `go` tick executes in this order:
 
-1. Snapshot des letzten Tick-Werts (`true-misconduct-prev-tick`)
-2. Reset von Tick-Zaehlern
-3. Bewegung
-4. Fehlverhaltens-Entscheid
-5. Beobachtung und Reporting
-6. Drift-Phase
-7. Metrik-Update
+1. Snapshot previous tick (`true-misconduct-prev-tick`)
+2. Reset tick-level counters
+3. Movement
+4. Misconduct decision
+5. Observation and reporting
+6. Drift phase
+7. Metric update
 
-### 3.1 Bewegung
+### 3.1 Movement
 
-Alle Agenten bewegen sich lokal zufaellig:
+All agents move locally and randomly:
 
-- Drehung und Vorwaertsbewegung (`rt random 50`, `lt random 50`, `fd 1`)
+- `rt random 50`, `lt random 50`, `fd 1`
 
-Dadurch veraendert sich die lokale Nachbarschaft fuer Beobachtung.
+This changes local observation neighborhoods.
 
-### 3.2 Fehlverhalten
+### 3.2 Misconduct Decision
 
-Fuer jeden Agenten `i`:
+For each agent `i`:
 
-- Ziehe `u ~ Uniform(0,1)`
-- Wenn `u < m_i(t)` mit `m_i(t) = misconduct-propensity_i(t)`, dann commitet Agent `i`
+- Draw `u ~ Uniform(0,1)`
+- Commit misconduct if `u < m_i(t)`, where `m_i(t) = misconduct-propensity_i(t)`
 
-Also:
+Therefore:
 
 - `P(commit_i(t)=1) = m_i(t)`
 
-Bei Commit:
+On commit:
 
 - `true-misconduct-this-tick += 1`
 - `true-misconduct-total += 1`
 
+### 3.3 Observation and Reporting
 
-### 3.3 Beobachtung und Reporting
+For each offender `j`:
 
-Fuer jeden Offender `j`:
+- Witness set: `other employees in-radius 3`
+- If witnesses exist: pick one random observer `k`
 
-- Witness-Menge: `other employees in-radius 3`
-- Falls Witness vorhanden: waehle zufaellig einen Beobachter `k`
+Reporting input:
 
-Reporting-Input:
+`x_report = 0.1 + 0.8 * reporter-protection - fear_k`
 
-`x_report = 0.1 + 0.8 * reporter-protection - fear_k + 0.2 * misconduct-propensity_j`
+Reporting probability:
 
-Reporting-Wahrscheinlichkeit:
+`p_report = logistic(x_report) = 1 / (1 + exp(-5 * x_report))`
 
-`p_report = logistic(x_report)`
+Compared to the previous version, reporting no longer includes an offender propensity term and now uses a steeper logistic curve.
 
-Wenn `u < p_report`:
+If `u < p_report`:
 
 - `reported-events-total += 1`
+- `reported-events-this-tick += 1`
 
-### 3.4 Sanktionierung (bei Report)
+### 3.4 Sanctioning (after report)
 
-Sanktionierung erfolgt bei jedem Report automatisch:
+Sanctioning is automatic for every report:
 
 - `sanctioned-this-tick += 1`
 - `sanctioned-misconduct-total += 1`
 
-Update fuer den Offender `j`:
+Offender update:
 
 `misconduct-propensity_j = clamp01(misconduct-propensity_j - response-strength * (0.3 + 0.7 * punishment-value))`
 
-Zusatz fuer Beobachter im `PUNISHMENT-WITNESS-RADIUS` um den Offender:
+Nearby bystanders (`radius = 6`) receive a smaller update:
 
 `misconduct-propensity_w = clamp01(misconduct-propensity_w - response-strength * (0.3 + 0.7 * punishment-value) * 0.3)`
 
 Interpretation:
 
-- Bei `punishment-value = 0`: Absenkung um `response-strength * 0.3`
-- Bei `punishment-value = 1`: Absenkung um `response-strength * 1.0`
+- At `punishment-value = 0`: drop is `response-strength * 0.3`
+- At `punishment-value = 1`: drop is `response-strength * 1.0`
 
-### 3.5 Retaliation (nach Report)
+### 3.5 Retaliation (after report)
 
-Retaliationswahrscheinlichkeit:
+Retaliation probability:
 
 `p_ret = clamp01(1 - reporter-protection)`
 
-Wenn Retaliation eintritt (beim Beobachter `k`):
+If retaliation happens (observer `k`):
 
 - `retaliation-events-total += 1`
+- `retaliation-events-this-tick += 1`
 - `retaliated-this-tick? = true`
 - `fear_k = clamp01(fear_k + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))`
-Zusatz fuer Beobachter im `RETALIATION-WITNESS-RADIUS` um den Reporter:
+
+Nearby bystanders (`radius = 3`) also receive fear increase:
 
 `fear_w = clamp01(fear_w + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection) * 0.3)`
 
-Dabei wird fuer diese Beobachter ebenfalls `retaliated-this-tick? = true` gesetzt, sodass in der Drift-Phase im selben Tick keine Fear-Mean-Reversion angewendet wird.
+For these bystanders, `retaliated-this-tick?` is also set to true, preventing same-tick fear mean reversion.
 
-### 3.6 Drift-Phase
+### 3.6 Drift Phase
 
-Fuer jeden Agenten `i`:
+For each agent `i`:
 
-1. **Mean-Reversion der Fehlverhaltensneigung** (nur wenn kein Commit in diesem Tick):
+1. **Misconduct propensity mean reversion** (if no commit this tick):
 
 `m_i(t+1) = clamp01(m_i(t) + drift-speed * (initial-misconduct-propensity - m_i(t)))`
 
-2. **Fear-Mean-Reversion** (nur wenn keine Retaliation in diesem Tick):
+2. **Fear mean reversion** (if no retaliation this tick):
 
 `fear_i(t+1) = clamp01(fear_i(t) + drift-speed * (initial-fear - fear_i(t)))`
 
-`drift-speed` steuert die Erholungsgeschwindigkeit unabhaengig von `response-strength`.
-`response-strength` steuert nur die ereignisgetriebenen Spruenge (Sanktionen, Retaliation).
-Damit kann die Erholung deutlich langsamer eingestellt werden als die Reaktion auf Ereignisse.
+`response-strength` controls event shocks (sanctioning/retaliation), while `drift-speed` controls recovery speed.
 
-Damit ist Fear eventgetrieben nach oben und ohne neues Ereignis langsam ruecklaeufig.
+### 3.7 Metrics
 
-### 3.7 Metriken
-
-Kumulierte Hidden-Misconduct:
+Cumulative hidden misconduct:
 
 `hidden-misconduct-total = true-misconduct-total - sanctioned-misconduct-total`
 
 Rate:
 
-- Wenn `true-misconduct-total > 0`:
+- If `true-misconduct-total > 0`:
   - `hidden-misconduct-rate = hidden-misconduct-total / true-misconduct-total`
-- sonst:
+- Else:
   - `hidden-misconduct-rate = 0`
 
-Relative Tick-zu-Tick-Aenderung:
+Relative tick-to-tick change:
 
-- Wenn `true-misconduct-prev-tick > 0`:
+- If `true-misconduct-prev-tick > 0`:
   - `relative-misconduct-change = ((true-misconduct-this-tick - true-misconduct-prev-tick) / true-misconduct-prev-tick) * 100`
-- sonst:
+- Else:
   - `relative-misconduct-change = 0`
 
-Tick-basierte Hidden-Misconduct-Kennzahlen:
+Tick-level hidden misconduct metrics:
 
 - `hidden-misconduct-this-tick = true-misconduct-this-tick - sanctioned-this-tick`
-- Wenn `true-misconduct-this-tick > 0`:
+- If `true-misconduct-this-tick > 0`:
   - `hidden-misconduct-rate-this-tick = hidden-misconduct-this-tick / true-misconduct-this-tick`
-- sonst:
+- Else:
   - `hidden-misconduct-rate-this-tick = 0`
 
-## 4) Slider -> Formel -> Wirkung
+## 4) Slider -> Formula -> Effect
 
-| Slider | Direkter mathematischer Ort | Haupteffekt |
+| Slider | Direct mathematical location | Main effect |
 |---|---|---|
-| `number-employees` | Populationsgroesse `N` | Mehr Agenten erzeugen mehr potenzielle Ereignisse pro Tick |
-| `initial-misconduct-propensity` | Startwert von `m_i`; Zielwert der Mean-Reversion | Hoeheres langfristiges Baseline-Niveau fuer Fehlverhalten |
-| `initial-fear` | Startwert von `fear_i` | Niedrigere Anfangs-Reportingbereitschaft bei hohem Wert |
-| `punishment-value` | Absenkung von `misconduct-propensity` nach Sanktion und Fear-Anstieg bei Retaliation | Hoehere Sanktionsstaerke und staerkere Retaliation bei hohem Wert |
-| `reporter-protection` | Reporting-Input, `p_ret`, Fear-Anstieg bei Retaliation | Mehr Reporting und weniger Retaliation/Fear-Anstieg |
-| `response-strength` | Ereignisgetriebene Updates (Sanktion, Retaliation) | Steuert Staerke der Reaktion auf Einzelereignisse |
-| `drift-speed` | Mean-Reversion in der Drift-Phase | Steuert Erholungsgeschwindigkeit zurueck zum Ausgangswert; unabhaengig von response-strength |
+| `number-employees` | Population size `N` | More possible events per tick |
+| `initial-misconduct-propensity` | Start value and mean-reversion target of `m_i` | Higher long-run baseline misconduct pressure |
+| `initial-fear` | Start value and mean-reversion target of `fear_i` | Lower baseline reporting when higher |
+| `punishment-value` | Sanction-induced propensity drop and retaliation-linked fear increase | Stronger sanctions and stronger retaliation pressure when higher |
+| `reporter-protection` | Reporting input and retaliation probability/severity channel | Higher reporting and lower retaliation when higher |
+| `response-strength` | Event-driven updates (sanction, retaliation) | Amplitude of single-event learning/shocks |
+| `drift-speed` | Mean reversion in drift phase | Recovery speed toward baseline |
 
-## 5) Dynamik ueber viele Ticks (Intuition)
+## 5) New BehaviorSpace Baseline Used by Integrated Experiments
 
-### 5.1 Erwartete Fehlverhalten pro Tick
+The integrated experiments inside `.nlogox` use these common baseline constants:
 
-`E[true-misconduct-this-tick | t] = Sum_i m_i(t)`
-
-Das ist der zentrale Input fuer Reporting, Sanktionen und Hidden-Misconduct.
-
-### 5.2 Nichtlineares Reporting
-
-Durch `p_report = logistic(x_report)` wirken kleine Aenderungen in `x_report` besonders stark im mittleren Bereich und schwach in den Saettigungsbereichen nahe 0 oder 1.
-
-### 5.3 Gekoppelte Fear-Dynamik
-
-Fear bewegt sich in beide Richtungen:
-
-- nach oben bei Retaliation (eventbasiert; staerker bei hohem `punishment-value`),
-- nach unten ohne Retaliation (langsamer Decay).
-
-Damit entsteht eine realistischere Erholungsdynamik statt dauerhaftem Drift nach oben.
-
-### 5.4 Hidden-Misconduct als Policy-Zielgroesse
-
-`hidden-misconduct-rate = 1 - sanctioned-misconduct-total / true-misconduct-total`
-
-Die Rate sinkt nur, wenn sanktionierte Faelle langfristig mit den tatsaechlichen Faellen Schritt halten.
+- `number-employees = 200`
+- `initial-misconduct-propensity = 0.4`
+- `initial-fear = 0.3`
+- `punishment-value = 0.66` (for OFAT baselines)
+- `reporter-protection = 0.5` (for OFAT baselines)
+- `response-strength = 0.2`
+- `drift-speed = 0.15`
+- `timeLimit = 300`
+- `repetitions = 10`
