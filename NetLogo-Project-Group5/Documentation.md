@@ -1,227 +1,125 @@
-## WHAT IS IT?
+# Group 5 Misconduct ABM - Documentation
 
-This model simulates organisational misconduct in a fixed employee population.
+This document describes the current model implementation in `Group5_Misconduct_ABM.nlogox`.
 
-The central question is:
+## What the model represents
 
-**When does higher punishment reduce true misconduct — and when does it mainly increase fear and suppress reporting instead?**
+The model simulates organizational misconduct in a fixed employee population.  
+Core question: when does stronger punishment reduce true misconduct, and when does it instead increase fear, suppress reporting, and leave more misconduct hidden?
 
-Employees may commit misconduct, coworkers may observe and report it, every reported case is sanctioned automatically, and retaliation against reporters may follow. Retaliation feeds back into fear, which in turn suppresses future reporting. The model tracks how much misconduct stays hidden depending on the policy levers available to management.
+Each tick:
+- employees may commit misconduct,
+- coworkers may observe and report,
+- every reported event is sanctioned automatically,
+- retaliation may happen after reporting,
+- fear and misconduct propensity are updated.
 
----
+## Tick flow
 
-## HOW IT WORKS
+1. **Movement**: employees move locally (`rt random 50`, `lt random 50`, `fd 1`).
+2. **Misconduct decision**: each employee commits with probability `misconduct-propensity`.
+3. **Observation**: witnesses are selected from `in-radius observation-radius`.
+4. **Reporting**: one witness decides to report via logistic probability.
+5. **Sanctioning**: every report triggers sanctioning.
+6. **Retaliation**: retaliation happens with probability `1 - reporter-protection`.
+7. **Drift**: non-shocked agents drift back toward baseline values.
+8. **Metrics update**: cumulative and per-tick indicators are recalculated.
 
-Each tick represents one abstract time period inside the organisation.
+## Core equations
 
-**1. Movement**
-Employees move randomly within their local neighbourhood. This changes who can observe whom, introducing natural variation in observation opportunities.
+- `logistic(x) = 1 / (1 + exp(-5 * x))`
+- `p_report = logistic(base-reporting-climate + 0.8 * reporter-protection - fear)`
+- `p_retaliation = clamp01(1 - reporter-protection)`
 
-**2. Misconduct Decision**
-Each employee commits misconduct with a probability equal to their individual `misconduct-propensity`. This is a Bernoulli draw each tick.
+On sanction (offender):
 
-**3. Observation**
-Employees who committed misconduct are observed by coworkers within a fixed radius of 3 patches (hardcoded). A single random witness is selected per offender.
+- `misconduct-propensity <- clamp01(misconduct-propensity - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5))`
 
-**4. Reporting Decision**
-The witness decides whether to report using a logistic function:
+On sanction (punishment bystanders):
 
-`p_report = logistic(0.1 + 0.8 × reporter-protection − fear)`
+- same term multiplied by `bystander-effect-factor`
 
-with:
+On retaliation (reporter):
 
-`logistic(x) = 1 / (1 + exp(−5x))`
+- `fear <- clamp01(fear + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))`
 
-Higher protection and lower fear increase reporting probability. The constant 0.1 reflects a slightly positive baseline climate (hardcoded). The steepness factor (`5`) makes reporting more threshold-like around the center.
+On retaliation (retaliation bystanders):
 
-**5. Sanctioning — Automatic, Strength-Variable**
-Every reported case is sanctioned without exception. The `punishment-value` slider controls the strength of the sanction: how much the offender's misconduct propensity drops.
+- same term multiplied by `bystander-effect-factor`
 
-`propensity_drop = response-strength × (0.3 + 0.7 × punishment-value)`
+Drift phase:
 
-At `punishment-value = 0` the drop is `response-strength × 0.3`; at maximum it is `response-strength × 1.0`.
+- if no misconduct this tick: propensity mean-reverts to `initial-misconduct-propensity`
+- if no retaliation this tick: fear mean-reverts to `initial-fear`
+- speed for both channels: `drift-speed`
 
-Punishment also has a **local bystander effect**: employees within `PUNISHMENT-WITNESS-RADIUS = 6` around the offender observe the sanction and reduce their own misconduct propensity by a smaller share. The larger radius reflects the organisation's intent to send a broad deterrence signal — punishment is public by design:
+## Hardcoded constants
 
-`bystander_propensity_drop = response-strength × (0.3 + 0.7 × punishment-value) × 0.3`
+These values are fixed in code (not sliders):
 
-**6. Retaliation**
-After every report, retaliation against the reporter occurs with probability:
-
-`p_retaliation = 1 − reporter-protection`
-
-When retaliation happens, the reporter's fear increases:
-
-`fear_increase = response-strength × (0.2 + 0.8 × punishment-value) × (1 − reporter-protection)`
-
-Probability falls as protection rises. Retaliation severity rises with `punishment-value` and falls with `reporter-protection`.
-
-Retaliation also has a **local bystander effect**: employees within `RETALIATION-WITNESS-RADIUS = 3` around the reporter observe retaliation and receive a smaller fear increase. The radius matches the misconduct observation radius — retaliation is covert and only perceptible to those in immediate proximity:
-
-`bystander_fear_increase = response-strength × (0.2 + 0.8 × punishment-value) × (1 − reporter-protection) × 0.3`
-
-Observed retaliation also sets the bystander's retaliation flag for the current tick, so this fear increase is not immediately offset by same-tick fear mean-reversion.
-
-**7. Drift and Fear Decay**
-In each tick's drift phase two things happen for every employee:
-
-- **Misconduct propensity** mean-reverts toward its personal starting value (if no misconduct was committed this tick), at speed `drift-speed`. This prevents permanent collapse or runaway growth.
-- **Fear mean-reverts** toward `initial-fear` when the employee was *not* retaliated against this tick:
-  `fear_next = fear + drift-speed × (initial-fear − fear)`.
-  Fear therefore moves back toward baseline in both directions, with speed controlled by `drift-speed` and current distance to baseline.
-
-**Agent colours** reflect current fear level:
-- 🟢 Green — fear below 0.33 (low)
-- 🟡 Yellow — fear 0.33 – 0.65 (moderate)
-- 🟠 Orange — fear 0.66 or above (high)
-
-**Key output metric:**
-
-`hidden-misconduct-rate = (true-misconduct-total − sanctioned-misconduct-total) / true-misconduct-total`
-
-Because every reported case is sanctioned, hidden misconduct equals *unreported* misconduct. The rate measures how large a share of all actual misconduct management never sees.
-
----
-
-## HOW TO USE IT
-
-1. Click **setup** to initialise the population.
-2. Click **go** (forever button) to run continuously.
-3. Adjust the two main policy levers:
-   - `punishment-value` — sanction strength and retaliation severity
-   - `reporter-protection` — reduces retaliation probability and fear accumulation
-4. Observe the three plots and the monitors.
-5. For batch experiments, use **Tools -> BehaviorSpace** and run one of the integrated experiment sets (`exp1_*`, `exp2_*`, `exp3*`).
-
-**Recommended baseline settings for reproducible experiments:**
-
-| Slider | Recommended default |
+| Constant | Value |
 |---|---|
-| number-employees | 200 |
-| initial-misconduct-propensity | 0.40 |
-| initial-fear | 0.30 |
-| punishment-value | 0.66 |
-| reporter-protection | 0.50 |
-| response-strength | 0.20 |
-| drift-speed | 0.15 |
+| `BASE-REPORTING-CLIMATE` | `0.1` |
+| `OBSERVATION-RADIUS` | `3` |
+| `PUNISHMENT-WITNESS-RADIUS` | `6` |
+| `RETALIATION-WITNESS-RADIUS` | `3` |
+| `BYSTANDER-EFFECT-FACTOR` | `0.3` |
 
-The interface defaults in the `.nlogox` file are intentionally stress-test oriented; the table above is the recommended baseline for policy analysis and for matching experiment outputs.
+## Interface controls (active sliders)
 
----
+- `number-employees` (20..400, step 10, default 250)
+- `initial-misconduct-propensity` (0..1, step 0.01, default 0.30)
+- `initial-fear` (0..1, step 0.01, default 0.35)
+- `punishment-value` (0..1, step 0.01, default 1.00)
+- `reporter-protection` (0..1, step 0.01, default 0.30)
+- `response-strength` (0..1, step 0.01, default 0.20)
+- `drift-speed` (0.01..0.5, step 0.01, default 0.15)
 
-## EXPERIMENT PIPELINE (INTEGRATED)
+## Outputs and interpretation
 
-The project now includes a full experiment pipeline:
+Key cumulative metric:
 
-1. Run BehaviorSpace experiments embedded in `Group5_Misconduct_ABM.nlogox`.
-2. Export results as **Table CSV** files.
-3. Analyze and visualize with:
-   - `NetLogo-Project-Group5/Experiments/analyze_all_experiments.py`
-4. Use sample figures in:
-   - `NetLogo-Project-Group5/Experiments/Sample Output Plots/`
+- `hidden-misconduct-rate = (true-misconduct-total - sanctioned-misconduct-total) / true-misconduct-total`
 
-The analysis script expects:
+Because sanctioning is automatic after reporting, hidden misconduct is equivalent to unreported misconduct.
 
-- `CSV_FOLDER` set to your export directory
-- `PREFIX` matching the NetLogo export filename prefix (default target: `Group5_Misconduct_ABM_EXPERIMENTS_V1 `)
+Plots included:
 
----
+1. `Misconduct Dynamics (Cumulative)`
+2. `Relative Misconduct Change (%)`
+3. `Per Tick Misconduct`
 
-## PLOTS AND MONITORS
+## BehaviorSpace experiments included
 
-Three plots are provided. All three show complementary perspectives on the same underlying dynamics and can be used in parallel for policy experiments.
+Embedded experiments:
 
-**Misconduct Dynamics (Cumulative)**
-Shows running totals of true, sanctioned, and hidden misconduct over all ticks. Useful for long-run comparisons across different parameter settings. The gap between the true and sanctioned curves is hidden misconduct.
+- `exp1_policy_grid`
+- `exp2_stakeholder_pareto`
+- `exp3a_sens_employees`
+- `exp3b_sens_init_propensity`
+- `exp3c_sens_init_fear`
+- `exp3d_sens_response_strength`
+- `exp3e_sens_drift_speed`
 
-**Per Tick Misconduct**
-Shows the flow rate each tick: how many misconduct events, sanctions, and hidden events occurred in the most recent period. This is the most responsive plot — policy changes show up here first, before the cumulative curves react visibly.
+Shared setup:
 
-**Relative Misconduct Change (%)**
-Shows the percentage change in true misconduct from the previous tick, like a stock price chart. A value of zero means no change; positive values mean misconduct is rising; negative values mean it is falling. Oscillation around zero indicates a stable equilibrium. Useful for comparing whether punishment or protection produces a faster downward trend.
+- `setup`/`go`
+- `timeLimit = 300`
+- `repetitions = 10`
 
-**Key monitors to watch:**
+Common baseline values used across experiments:
 
-| Monitor | What it tells you |
-|---|---|
-| Hidden misconduct rate (total) | The core policy outcome: share of misconduct that stays invisible over the full run |
-| Retaliation events (total) | Total retaliation load over the full run |
-| Reported events (tick) | Real-time number of reports in the current period |
-| Retaliation events (tick) | Real-time retaliation load in the current period |
-| True misconduct (tick) | Real-time pulse of misconduct activity |
-| Hidden misconduct (tick) | Unseen misconduct in the current period (`true - sanctioned`) |
-| Hidden misconduct rate (tick) | Share of current-period misconduct that stayed hidden |
-| Relative change (%) | Momentum: is misconduct currently growing or shrinking? |
+- `number-employees = 300`
+- `initial-misconduct-propensity = 0.4`
+- `initial-fear = 0.3`
+- `response-strength = 0.2`
+- `drift-speed = 0.05`
 
----
+`punishment-value` and `reporter-protection` are either stepped (policy grid / pareto) or fixed to `0.5` and `0.3` in one-factor sensitivity experiments.
 
-## THINGS TO NOTICE
+## How to run
 
-- Increasing `punishment-value` alone does not necessarily reduce true misconduct. Stronger punishment also intensifies retaliation severity after reporting, so low `reporter-protection` can still push fear up and suppress reporting.
-- `reporter-protection` operates on two channels simultaneously: it raises reporting probability *and* reduces both the probability and severity of retaliation. It is the more powerful single lever in this model.
-- Agents start mostly green or yellow (low/moderate fear). Orange agents only appear after repeated retaliation experiences. If fear is high at baseline and agents are already orange at tick 1, lower `initial-fear` or raise `reporter-protection`.
-- The per-tick plot is noisy by design — it reflects the stochastic nature of individual decisions. Smooth trends are only visible over many ticks.
-
----
-
-## THINGS TO TRY
-
-**1. Protection sweep**
-Set `punishment-value = 0.70` (fixed). Run three scenarios: `reporter-protection` at 0.10, 0.45, and 0.90. Compare hidden-misconduct-rate after 200 ticks. Observe how retaliation events and fear levels differ.
-
-**2. Punishment sweep**
-Set `reporter-protection = 0.45` (fixed). Run three scenarios: `punishment-value` at 0.20, 0.50, and 0.90. Notice that higher punishment does not always lower hidden-misconduct-rate.
-
-**3. Fear trap**
-Set `reporter-protection = 0.05`. Run 100 ticks until fear is high across the population. Then raise protection to 0.80. Observe the recovery lag: it takes time for fear to decay and reporting to recover, even after protection improves.
-
-**4. Learning-rate sensitivity**
-Keep all other sliders at default. Compare `response-strength = 0.05` vs `response-strength = 0.40`. Fast learners respond strongly to each sanction or retaliation; slow learners average out experience over time and are more resistant to short-term shocks.
-
----
-
-## HARDCODED CONSTANTS
-
-The following parameters are fixed in the code and not exposed as sliders:
-
-| Constant | Value | Meaning |
-|---|---|---|
-| BASE-REPORTING-CLIMATE | 0.1 | Baseline logit offset for reporting — slightly positive culture |
-| OBSERVATION-RADIUS | 3 patches | Fixed neighbourhood for witness selection |
-| PUNISHMENT-WITNESS-RADIUS | 6 patches | Radius in which others observe punishment — larger because the organisation signals it publicly |
-| RETALIATION-WITNESS-RADIUS | 3 patches | Radius in which others notice retaliation — equals misconduct radius because retaliation is covert |
-| BYSTANDER-EFFECT-FACTOR | 0.3 | Scales indirect punishment/retaliation effects on nearby agents |
-
----
-
-## EXTENDING THE MODEL
-
-- Add explicit departments with local trust and norm variables.
-- Add compliance capacity limits: finite case-processing capacity and a growing backlog.
-- Add anonymity and evidence-quality trade-off in the reporting decision.
-- Add heterogeneous roles: employees, managers, and dedicated compliance officers with different propensities and observation radii.
-- Introduce warning stages before full sanction (progressive discipline).
-- Track average fear across the population as a persistent monitor to visualise chilling effect over time.
-
----
-
-## NETLOGO FEATURES
-
-- One breed (`employees`) with evolving internal attributes.
-- Local interaction via `in-radius` for witness selection.
-- Steeper logistic reporting function (`1 / (1 + exp(-5x))`) for nonlinear threshold dynamics.
-- Bernoulli misconduct events drawn each tick.
-- Learning-rate-coupled fear dynamics (both rise and decay).
-- Three synchronised plots for policy comparison across runs.
-- Built-in BehaviorSpace experiment suites (policy grid, Pareto trade-offs, OFAT sensitivity).
-
----
-
-## CREDITS AND REFERENCES
-
-Project concept and model structure:
-- Group 5 presentation: *Agent-Based Simulation of Organisational Misconduct*
-
-NetLogo references:
-- [NetLogo Tutorial #1: Models](https://docs.netlogo.org/tutorial1)
-- [Beginner's Interactive NetLogo Dictionary (BIND)](https://bind.netlogo.org)
+1. Open `Group5_Misconduct_ABM.nlogox` in NetLogo 7.x.
+2. Click `setup`, then run `go`.
+3. For experiments, open `Tools -> BehaviorSpace` and choose one integrated experiment.
+4. Export tables as CSV for downstream analysis.

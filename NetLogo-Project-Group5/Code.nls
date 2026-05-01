@@ -1,17 +1,16 @@
 ;; ============================================================
 ;; Group 5 – Misconduct ABM  |  Revised Code
 ;; ============================================================
-;; Hardcoded constants (removed from Interface sliders):
+;; Fixed model constants (defined in setup, not as sliders):
 ;;   BASE-REPORTING-CLIMATE  = 0.1
 ;;   OBSERVATION-RADIUS      = 3
 ;;   PUNISHMENT-WITNESS-RADIUS = 6
 ;;   RETALIATION-WITNESS-RADIUS = 3
 ;;   BYSTANDER-EFFECT-FACTOR = 0.3
 ;;
-;; Removed sliders:
-;;   base-reporting-climate, observation-radius,
-;;   retaliation-base-chance, sanction-cost, retaliation-cost,
-;;   misconduct-gain
+;; Active Interface sliders:
+;;   number-employees, initial-misconduct-propensity, initial-fear,
+;;   punishment-value, reporter-protection, response-strength, drift-speed
 ;;
 ;; Key behaviour changes:
 ;;   - Sanctioning is AUTOMATIC on every report (no probability gate)
@@ -26,6 +25,11 @@
 breed [employees employee]
 
 globals [
+  base-reporting-climate
+  observation-radius
+  punishment-witness-radius
+  retaliation-witness-radius
+  bystander-effect-factor
   true-misconduct-total
   sanctioned-misconduct-total
   reported-events-total
@@ -51,6 +55,13 @@ employees-own [
 
 to setup
   clear-all
+  ;; Fixed model constants (formerly Interface sliders)
+  set base-reporting-climate   0.1
+  set observation-radius       3
+  set punishment-witness-radius 6
+  set retaliation-witness-radius 3
+  set bystander-effect-factor  0.3
+
   set true-misconduct-total       0
   set sanctioned-misconduct-total 0
   set reported-events-total       0
@@ -121,7 +132,7 @@ end
 to observation-and-reporting-phase
   ask employees with [committed-this-tick?] [
     let offender self
-    let witnesses other employees in-radius 3
+    let witnesses other employees in-radius observation-radius
     if any? witnesses [
       let observer one-of witnesses
       ask observer [ decide-report offender ]
@@ -130,10 +141,9 @@ to observation-and-reporting-phase
 end
 
 to decide-report [offender]
-  let reporting-input (0.1
-    + (0.8 * reporter-protection)
+  let reporting-input (base-reporting-climate
+    + reporter-protection
     - fear)
-;    + (0.2 * [misconduct-propensity] of offender))  ;; REmove *****
   let reporting-prob logistic reporting-input
 
   if random-float 1 < reporting-prob [
@@ -146,15 +156,15 @@ to decide-report [offender]
     ask offender [
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - response-strength * (0.3 + 0.7 * punishment-value))  ;; ASK CLAUDE. Ex. add stochastic punishment probability *****
+        - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5))
     ]
     ;; Nearby agents can notice punishment and adapt behavior too.
     ;; Radius 6: organisation actively signals punishment broadly.
-    let punishment-witnesses ([other employees in-radius 6] of offender)
+    let punishment-witnesses ([other employees in-radius punishment-witness-radius] of offender)
     ask punishment-witnesses [
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - response-strength * (0.3 + 0.7 * punishment-value) * 0.3)
+        - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5) * bystander-effect-factor)
     ]
 
     ;; RETALIATION – probability = (1 - reporter-protection)
@@ -171,10 +181,10 @@ to decide-report [offender]
         + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))
       ;; Nearby agents can notice retaliation and become more fearful too.
       ;; Radius 3: retaliation is covert, same visibility as the original misconduct.
-      ask other employees in-radius 3 [
+      ask other employees in-radius retaliation-witness-radius [
         set retaliated-this-tick? true
         set fear clamp01 (fear
-          + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection) * 0.3)
+          + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection) * bystander-effect-factor)
       ]
     ]
   ]
