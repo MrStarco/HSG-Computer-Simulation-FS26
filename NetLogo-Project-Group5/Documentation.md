@@ -75,19 +75,24 @@ These values are fixed in code (not sliders):
 - `response-strength` (0..1, step 0.01, default 0.20)
 - `drift-speed` (0.01..0.5, step 0.01, default 0.15)
 
+## Visual cues
+
+The model provides two color modes. `Event` mode is the default after `setup`: direct events are highlighted per tick (`red` misconduct, `blue` report, `cyan` retaliation experienced, `violet` sanctioned offender) and agents without a direct event are shown in `brown`. `Fear` mode colors all agents by fear only (`green` → `yellow` → `orange`). The `switch color mode` button under the run buttons toggles between these two views.
+
 ## Outputs and interpretation
 
 Key cumulative metric:
 
 - `hidden-misconduct-rate = (true-misconduct-total - sanctioned-misconduct-total) / true-misconduct-total`
 
-Because sanctioning is automatic after reporting, hidden misconduct is equivalent to unreported misconduct.
+Because sanctioning is automatic after reporting, hidden misconduct tracks unreported cases. The right-side monitors now display only the total stocks (`true`, `sanctioned`, `hidden`, the hidden rate, plus `reported` and `retaliation` event totals) to keep the layout compact; tick-level counts remain calculated for the plots but are no longer shown as individual monitors.
 
 Plots included:
 
-1. `Misconduct Dynamics (Cumulative)`
-2. `Relative Misconduct Change (%)`
-3. `Per Tick Misconduct`
+1. `Relative Misconduct Change (%)`
+2. `Per Tick Misconduct`
+
+The cumulative dynamics plot was removed to highlight the totals as monitors and keep the plot area focused on the momentum (`relative change`) and flow (`per tick`) dynamics that update every tick.
 
 ## BehaviorSpace experiments included
 
@@ -120,6 +125,7 @@ Common baseline values used across experiments:
 ## How to run
 
 1. Open `Group5_Misconduct_ABM.nlogox` in NetLogo 7.x.
-2. Click `setup`, then run `go`.
-3. For experiments, open `Tools -> BehaviorSpace` and choose one integrated experiment.
-4. Export tables as CSV for downstream analysis.
+2. Click `setup`, then run `go` or use the new `go-50` button to advance exactly 50 ticks without babysitting the forever button.
+3. Use `switch color mode` (under the run buttons) to toggle between event colors and fear colors.
+4. For experiments, open `Tools -> BehaviorSpace` and choose one integrated experiment.
+5. Export tables as CSV for downstream analysis.

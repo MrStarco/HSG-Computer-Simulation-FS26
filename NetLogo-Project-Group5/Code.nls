@@ -30,6 +30,7 @@ globals [
   punishment-witness-radius
   retaliation-witness-radius
   bystander-effect-factor
+  color-mode
   true-misconduct-total
   sanctioned-misconduct-total
   reported-events-total
@@ -51,6 +52,10 @@ employees-own [
   fear
   committed-this-tick?
   retaliated-this-tick?
+  reported-this-tick?
+  sanctioned-this-tick?
+  retaliation-witnessed-this-tick?
+  sanction-witnessed-this-tick?
 ]
 
 to setup
@@ -61,6 +66,8 @@ to setup
   set punishment-witness-radius 6
   set retaliation-witness-radius 3
   set bystander-effect-factor  0.3
+  ;; Color mode: "event" (default) or "fear"
+  set color-mode "event"
 
   set true-misconduct-total       0
   set sanctioned-misconduct-total 0
@@ -85,7 +92,11 @@ to setup
     set fear                  clamp01 (random-normal initial-fear 0.08)
     set committed-this-tick?  false
     set retaliated-this-tick? false
-    recolor-from-fear
+    set reported-this-tick?  false
+    set sanctioned-this-tick? false
+    set retaliation-witnessed-this-tick? false
+    set sanction-witnessed-this-tick? false
+    recolor-agent
   ]
   reset-ticks
 end
@@ -109,6 +120,17 @@ to go
   tick
 end
 
+to go-50
+  repeat 50 [ go ]
+end
+
+to toggle-color-mode
+  ifelse color-mode = "event"
+  [ set color-mode "fear" ]
+  [ set color-mode "event" ]
+  ask employees [ recolor-agent ]
+end
+
 to move-employees
   ask employees [
     rt random 50
@@ -121,6 +143,10 @@ to misconduct-phase
   ask employees [
     set committed-this-tick?  false
     set retaliated-this-tick? false
+    set reported-this-tick? false
+    set sanctioned-this-tick? false
+    set retaliation-witnessed-this-tick? false
+    set sanction-witnessed-this-tick? false
     if random-float 1 < misconduct-propensity [
       set committed-this-tick? true
       set true-misconduct-this-tick true-misconduct-this-tick + 1
@@ -147,6 +173,7 @@ to decide-report [offender]
   let reporting-prob logistic reporting-input
 
   if random-float 1 < reporting-prob [
+    set reported-this-tick? true
     set reported-events-total reported-events-total + 1
     set reported-events-this-tick reported-events-this-tick + 1
 
@@ -154,6 +181,7 @@ to decide-report [offender]
     set sanctioned-this-tick        sanctioned-this-tick        + 1
     set sanctioned-misconduct-total sanctioned-misconduct-total + 1
     ask offender [
+      set sanctioned-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
         - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5))
@@ -162,6 +190,7 @@ to decide-report [offender]
     ;; Radius 6: organisation actively signals punishment broadly.
     let punishment-witnesses ([other employees in-radius punishment-witness-radius] of offender)
     ask punishment-witnesses [
+      ;; set sanction-witnessed-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
         - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5) * bystander-effect-factor)
@@ -182,7 +211,7 @@ to decide-report [offender]
       ;; Nearby agents can notice retaliation and become more fearful too.
       ;; Radius 3: retaliation is covert, same visibility as the original misconduct.
       ask other employees in-radius retaliation-witness-radius [
-        set retaliated-this-tick? true
+        ;; set retaliation-witnessed-this-tick? true
         set fear clamp01 (fear
           + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection) * bystander-effect-factor)
       ]
@@ -202,9 +231,13 @@ to drift-phase
         fear
         + drift-speed * (initial-fear - fear))
     ]
+    recolor-agent
     set committed-this-tick?  false
     set retaliated-this-tick? false
-    recolor-from-fear
+    set reported-this-tick? false
+    set sanctioned-this-tick? false
+    set retaliation-witnessed-this-tick? false
+    set sanction-witnessed-this-tick? false
   ]
 end
 
@@ -214,6 +247,29 @@ to recolor-from-fear
   [ ifelse fear < 0.66
     [ set color yellow - 2 ]
     [ set color orange + 1 ] ]
+end
+
+to recolor-agent
+  if color-mode = "fear" [
+    recolor-from-fear
+    stop
+  ]
+
+  ifelse retaliated-this-tick?
+  [ set color cyan + 1 ]
+  [ ifelse reported-this-tick?
+    [ set color blue + 1 ]
+    [ ifelse sanctioned-this-tick?
+      [ set color violet ]
+      [ ifelse committed-this-tick?
+        [ set color red ]
+        [ ;; bystander color highlighting currently disabled
+          ;; ifelse retaliation-witnessed-this-tick?
+          ;; [ set color cyan + 2 ]
+          ;; [ ifelse sanction-witnessed-this-tick?
+          ;;   [ set color violet + 2 ]
+          ;;   [ recolor-from-fear ] ]
+          set color brown + 1 ] ] ] ]
 end
 
 to update-metrics

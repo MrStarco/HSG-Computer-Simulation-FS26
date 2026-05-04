@@ -12,6 +12,10 @@ Each employee has:
 - `fear` in `[0, 1]`
 - `committed-this-tick?`
 - `retaliated-this-tick?`
+- `reported-this-tick?`
+- `sanctioned-this-tick?`
+- `retaliation-witnessed-this-tick?`
+- `sanction-witnessed-this-tick?`
 
 ### 1.2 Global variables (`globals`)
 
@@ -21,6 +25,7 @@ Each employee has:
   - `punishment-witness-radius`
   - `retaliation-witness-radius`
   - `bystander-effect-factor`
+  - `color-mode` (`"event"` or `"fear"`)
 - Cumulative metrics:
   - `true-misconduct-total`
   - `sanctioned-misconduct-total`
@@ -116,7 +121,7 @@ Retaliation bystander update (`radius = 3`):
 
 - same term multiplied by `bystander-effect-factor`
 
-For retaliation bystanders, `retaliated-this-tick?` is also set to `true`, preventing same-tick fear mean reversion.
+For retaliation bystanders, only fear is increased; `retaliated-this-tick?` is reserved for the directly affected reporter so that violet highlighting marks direct retaliation events.
 
 ### 4.5 Drift
 
@@ -128,7 +133,11 @@ If no retaliation this tick:
 
 - `fear <- clamp01(fear + drift-speed * (initial-fear - fear))`
 
-## 5) Metric definitions
+## 5) Visual feedback
+
+The `recolor-agent` helper supports two visualization modes. In `event` mode (default after `setup`), priority is direct retaliation (`cyan`) > direct report (`blue`) > direct sanction (`violet`) > direct misconduct (`red`) > neutral (`brown`). In `fear` mode, colors always follow fear (`green/yellow/orange`) regardless of event flags. The `toggle-color-mode` procedure switches the mode and immediately recolors all agents. Bystander color highlighting is currently commented out (disabled) even though bystander-effect fear dynamics remain in the model. All event flags are one-tick markers and are reset at the end of `drift-phase`, so highlights are short and interpretable.
+
+## 6) Metric definitions
 
 Per tick:
 
@@ -144,7 +153,9 @@ Relative change:
 
 - `relative-misconduct-change = ((true-misconduct-this-tick - true-misconduct-prev-tick) / true-misconduct-prev-tick) * 100` if denominator > 0, else 0
 
-## 6) Slider -> direct mathematical role
+Although the interface no longer exposes the tick-level monitors, these values continue to be calculated every tick to populate the two plots (`Per Tick Misconduct` and `Relative Misconduct Change (%)`).
+
+## 7) Slider -> direct mathematical role
 
 | Slider | Mathematical role |
 |---|---|
@@ -156,7 +167,7 @@ Relative change:
 | `response-strength` | Magnitude of sanction and retaliation shocks |
 | `drift-speed` | Mean-reversion speed toward initial values |
 
-## 7) Embedded experiment defaults
+## 8) Embedded experiment defaults
 
 The integrated BehaviorSpace experiments use:
 
@@ -168,3 +179,7 @@ Policy parameters are either:
 
 - stepped from `0` to `1` in increments of `0.1` (`exp1`, `exp2`), or
 - fixed at `punishment-value = 0.5`, `reporter-protection = 0.3` in one-factor sensitivity experiments (`exp3*`).
+
+## 9) Convenience runs
+
+The new `go-50` procedure repeats `go` exactly 50 times to quickly scan short runs without manually stopping the forever button. It simply encapsulates `repeat 50 [ go ]` and relies on the same tick-level bookkeeping and coloring logic described above.
