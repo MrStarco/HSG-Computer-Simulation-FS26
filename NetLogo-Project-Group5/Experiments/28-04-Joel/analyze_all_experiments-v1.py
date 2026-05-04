@@ -10,11 +10,12 @@ Plots are saved as PNG files in the same folder as the CSV files.
 """
 
 # =============================================================================
-# CONFIG  –  edit these two lines, then run the file
+# CONFIG  –  Path to the CSV files
 # =============================================================================
 
-# Folder where your NetLogo CSV exports live.
-CSV_FOLDER = r"/Users/...."
+import pathlib
+CSV_FOLDER = pathlib.Path(__file__).parent
+
 
 # Prefix that NetLogo put in front of every filename.
 # NetLogo names files like:  <PREFIX> <experiment-name>-table.csv
