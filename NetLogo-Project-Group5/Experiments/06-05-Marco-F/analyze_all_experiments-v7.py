@@ -374,12 +374,6 @@ def _plot_exp1_heatmaps(df):
         ax.tick_params(labelsize=7)
         ax.grid(False)
 
-        # Mark the four archetypes with a white square outline
-        for P_val, R_val, label, _ in ARCHETYPES:
-            ax.plot(P_val, R_val, marker="s", markersize=14,
-                    color="none", markeredgecolor="white",
-                    markeredgewidth=1.8, zorder=5)
-
         # Cell value annotations for all policy steps (0.20–0.80, step 0.05)
         for i, yy in enumerate(y):
             for j, xx in enumerate(x):
