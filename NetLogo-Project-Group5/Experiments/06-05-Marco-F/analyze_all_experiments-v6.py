@@ -328,16 +328,16 @@ def _plot_exp1_heatmaps(df):
     DVS = [
         ("true_misconduct_rate",
          "Committed misconduct rate",
-         "rate (share of employees per tick)"),
+         "Rate (share of employees per tick)"),
         ("hidden-misconduct-rate",
          "Hidden misconduct rate",
-         "share of misconduct undetected"),
+         "Share of misconduct undetected"),
         ("retaliation_rate",
          "Retaliation rate",
-         "rate (share of employees per tick)"),
+         "Rate (share of employees per tick)"),
         ("mean_fear",
          "Mean fear",
-         "avg fear level (0\u20131)"),
+         "Average fear level (0\u20131)"),
     ]
 
     grp   = df.groupby(["punishment-severity", "reporter-protection"])
@@ -349,8 +349,8 @@ def _plot_exp1_heatmaps(df):
     fig, axes = plt.subplots(2, 2, figsize=(14.5, 11.8))
     fig.suptitle(
         "Experiment 1 \u2013 Policy outcomes across the punishment \u00d7 protection grid\n"
-        "(each cell = mean over 10 replications, 300 ticks; "
-        "green = better outcome, red = worse outcome)",
+        "(Each cell = mean over 10 replications, 300 ticks; "
+        "Green = better outcome, Red = worse outcome)",
         fontsize=13, y=0.999,
     )
 
@@ -365,8 +365,8 @@ def _plot_exp1_heatmaps(df):
                     y.min()-0.025, y.max()+0.025],
         )
         ax.set_title(title, pad=8)
-        ax.set_xlabel("punishment-severity")
-        ax.set_ylabel("reporter-protection")
+        ax.set_xlabel("Punishment-severity")
+        ax.set_ylabel("Reporter-protection")
         ax.set_xticks(x)
         ax.set_yticks(y)
         ax.set_xticklabels([f"{v:.2f}" for v in x], fontsize=7)
@@ -456,13 +456,13 @@ def _plot_exp1_mechanism(df):
                 if panel_idx == 0:
                     legend_handles.append(line)
                     legend_labels.append(f"R = {R:.2f}")
-            ax.set_xlabel("punishment-severity")
+            ax.set_xlabel("Punishment-severity")
             ax.set_ylabel(ylab)
             ax.set_xticks(x_levels)
             ax.set_xticklabels([f"{v:.2f}" for v in x_levels], fontsize=8)
 
         fig.legend(
-            legend_handles, legend_labels, title="reporter-protection",
+            legend_handles, legend_labels, title="Reporter-protection",
             loc="lower center", ncol=7, bbox_to_anchor=(0.5, -0.03), fontsize=8
         )
         plt.tight_layout(rect=[0, 0.07, 1, 0.93])
@@ -541,13 +541,13 @@ def _plot_exp1_pareto(df):
     )
     scatter_pareto(
         axes[1], reg, mgmt,
-        "Hidden misconduct rate (share undetected)",
+        "Hidden misconduct rate (Share undetected)",
         "Committed misconduct rate",
         "Committed misconduct vs hidden misconduct",
     )
 
     cbar = fig.colorbar(sc, ax=axes, fraction=0.025, pad=0.03)
-    cbar.set_label("reporter-protection")
+    cbar.set_label("Reporter-protection")
     cbar.set_ticks(level_vals)
     cbar.set_ticklabels([f"{v:.2f}" for v in level_vals])
     size_handles = [
@@ -559,7 +559,7 @@ def _plot_exp1_pareto(df):
         for p in level_vals
     ]
     axes[0].legend(
-        handles=size_handles, title="punishment-severity",
+        handles=size_handles, title="Punishment-severity",
         loc="upper left", labelspacing=0.6, borderpad=0.6, ncol=2, fontsize=7.5
     )
 
@@ -579,10 +579,10 @@ def _plot_exp1_archetypes(df):
     panels = [
         ("true_misconduct_rate",
          "Committed misconduct rate",
-         "committed misconduct rate"),
+         "Committed misconduct rate"),
         ("retaliation_rate",
          "Retaliation rate",
-         "retaliation rate"),
+         "Retaliation rate"),
         ("hidden-misconduct-rate",
          "Hidden misconduct rate",
          "Hidden misconduct rate"),
@@ -647,7 +647,7 @@ def _plot_exp1_archetypes(df):
     ]
     fig.legend(
         handles=legend_handles,
-        title="Archetypal policies",
+        title="Archetypal Policies",
         loc="lower center",
         ncol=4,
         bbox_to_anchor=(0.5, -0.18),
@@ -668,11 +668,11 @@ def _plot_exp1_archetypes(df):
 # =============================================================================
 
 EXP2_PARAMS = [
-    ("number-employees",              "number-employees",               300),
-    ("initial-misconduct-propensity", "initial-misconduct-propensity",  0.40),
-    ("initial-fear",                  "initial-fear",                   0.30),
-    ("learning-rate",             "learning-rate",              0.20),
-    ("baseline-recovery-rate",                   "baseline-recovery-rate",                    0.05),
+    ("number-employees",              "Number-employees",               300),
+    ("initial-misconduct-propensity", "Initial-misconduct-propensity",  0.40),
+    ("initial-fear",                  "Initial-fear",                   0.30),
+    ("learning-rate",                 "Learning-rate",                  0.20),
+    ("baseline-recovery-rate",        "Baseline-recovery-rate",         0.05),
 ]
 
 EXP2_DVS = [
