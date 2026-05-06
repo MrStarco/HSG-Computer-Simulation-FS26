@@ -227,7 +227,7 @@ def load_spreadsheet_csv(path):
 def add_rates(df, ticks=300):
     """Add derived stakeholder-cost columns from cumulative totals.
 
-    true_misconduct_rate and retaliation_rate are the share of total employees
+    true_misconduct_rate and retaliation_rate are rates as share of employees
     involved on average per tick (0.12 = 12% of employees).
     This is valid because each employee can commit / experience at most one
     misconduct or retaliation event per tick, so events-per-tick / N equals
@@ -236,7 +236,18 @@ def add_rates(df, ticks=300):
     out = df.copy()
     n = out["number-employees"]
     t = ticks if isinstance(ticks, (int, float)) else out[ticks].clip(lower=1)
+    punished_total_col = None
+    if "punished-misconduct-total" in out.columns:
+        punished_total_col = "punished-misconduct-total"
+    elif "sanctioned-misconduct-total" in out.columns:
+        # Backward-compatible fallback for pre-renaming CSV exports.
+        punished_total_col = "sanctioned-misconduct-total"
+
     out["true_misconduct_rate"] = out["committed-misconduct-total"] / (t * n)
+    if punished_total_col is not None:
+        out["punished_misconduct_rate"] = out[punished_total_col] / (t * n)
+    else:
+        out["punished_misconduct_rate"] = np.nan
     out["retaliation_rate"]     = out["retaliation-events-total"] / (t * n)
     out["reporting_rate"]       = np.where(
         out["committed-misconduct-total"] > 0,
@@ -316,14 +327,14 @@ def _plot_exp1_heatmaps(df):
     # (column, panel title, colorbar label)
     DVS = [
         ("true_misconduct_rate",
-         "Share of employees committing misconduct",
-         "share of employees (avg per tick)"),
+         "Committed misconduct rate",
+         "rate (share of employees per tick)"),
         ("hidden-misconduct-rate",
          "Hidden misconduct rate",
          "share of misconduct undetected"),
         ("retaliation_rate",
-         "Share of employees experiencing retaliation",
-         "share of employees (avg per tick)"),
+         "Retaliation rate",
+         "rate (share of employees per tick)"),
         ("mean_fear",
          "Mean fear",
          "avg fear level (0\u20131)"),
@@ -388,13 +399,13 @@ def _plot_exp1_heatmaps(df):
 
 
 def _plot_exp1_mechanism(df):
-    """Mechanism plot: how punishment interacts with protection level."""
+    """Mechanism plots: old (hidden) and new (punished/visible)."""
     grp   = df.groupby(["punishment-severity", "reporter-protection"])
     means = grp[["true_misconduct_rate", "hidden-misconduct-rate",
-                 "retaliation_rate"]].mean().reset_index()
+                 "punished_misconduct_rate", "retaliation_rate"]].mean().reset_index()
     stds  = grp[["true_misconduct_rate", "hidden-misconduct-rate",
-                 "retaliation_rate"]].std().reset_index()
-    for col in ["true_misconduct_rate", "hidden-misconduct-rate", "retaliation_rate"]:
+                 "punished_misconduct_rate", "retaliation_rate"]].std().reset_index()
+    for col in ["true_misconduct_rate", "hidden-misconduct-rate", "punished_misconduct_rate", "retaliation_rate"]:
         means[f"{col}_std"] = stds[col]
 
     chosen_R = sorted(np.round(means["reporter-protection"].dropna().unique(), 2))
@@ -402,49 +413,62 @@ def _plot_exp1_mechanism(df):
     sub["reporter-protection"] = sub["reporter-protection"].round(2)
     x_levels = sorted(np.round(means["punishment-severity"].dropna().unique(), 2))
 
-    fig, axes = plt.subplots(1, 2, figsize=(14.8, 5.8), sharex=True)
-    fig.suptitle(
-        "Experiment 1 \u2013 When does punishment work? (Mechanism plot)\n"
-        "Downward slope = punishment reduces misconduct.  "
-        "Flat / upward = fear trap (misconduct goes underground).",
-        fontsize=12, y=1.02,
-    )
-    cmap_mech = plt.get_cmap("viridis")
-    panels = [
-        ("true_misconduct_rate",
-         "Share of employees committing misconduct (avg per tick)"),
-        ("hidden-misconduct-rate",
-         "Hidden misconduct rate (share of true misconduct undetected)"),
+    variants = [
+        {
+            "right_col": "hidden-misconduct-rate",
+            "right_label": "Hidden misconduct rate",
+            "subtitle": "Downward slope = punishment reduces misconduct.  Flat / upward = fear trap (misconduct goes underground).",
+            "out_name": "exp1_mechanism_hidden.png",
+        },
+        {
+            "right_col": "punished_misconduct_rate",
+            "right_label": "Punished misconduct rate",
+            "subtitle": "Downward slope = punishment reduces misconduct.  Contrast: committed can rise while punished/visible can fall.",
+            "out_name": "exp1_mechanism_visible.png",
+        },
     ]
-    legend_handles = []
-    legend_labels = []
-    for panel_idx, (ax, (col, ylab)) in enumerate(zip(axes, panels)):
-        for k, R in enumerate(chosen_R):
-            s   = sub[sub["reporter-protection"] == R].sort_values("punishment-severity")
-            x   = s["punishment-severity"].values
-            y   = s[col].values
-            err = s[f"{col}_std"].values if f"{col}_std" in s.columns else np.zeros_like(y)
-            colour = cmap_mech(k / max(len(chosen_R) - 1, 1))
-            line, = ax.plot(x, y, marker="o", markersize=3.2, color=colour,
-                            label=f"R = {R:.2f}", linewidth=1.6)
-            ax.fill_between(x, y - err, y + err,
-                            color=colour, alpha=0.08, linewidth=0)
-            if panel_idx == 0:
-                legend_handles.append(line)
-                legend_labels.append(f"R = {R:.2f}")
-        ax.set_xlabel("punishment-severity")
-        ax.set_ylabel(ylab)
-        ax.set_xticks(x_levels)
-        ax.set_xticklabels([f"{v:.2f}" for v in x_levels], fontsize=8)
 
-    fig.legend(
-        legend_handles, legend_labels, title="reporter-protection",
-        loc="lower center", ncol=7, bbox_to_anchor=(0.5, -0.03), fontsize=8
-    )
-    plt.tight_layout(rect=[0, 0.07, 1, 1])
-    out = PLOT_FOLDER / "exp1_mechanism.png"
-    fig.savefig(out); print(f"  Saved: {out.name}")
-    plt.show()
+    for variant in variants:
+        fig, axes = plt.subplots(1, 2, figsize=(14.8, 5.8), sharex=True)
+        fig.suptitle(
+            "Experiment 1 \u2013 When does punishment work?\n"
+            f"{variant['subtitle']}",
+            fontsize=12, y=0.99,
+        )
+        cmap_mech = plt.get_cmap("viridis")
+        panels = [
+            ("true_misconduct_rate", "Committed misconduct rate"),
+            (variant["right_col"], variant["right_label"]),
+        ]
+        legend_handles = []
+        legend_labels = []
+        for panel_idx, (ax, (col, ylab)) in enumerate(zip(axes, panels)):
+            for k, R in enumerate(chosen_R):
+                s   = sub[sub["reporter-protection"] == R].sort_values("punishment-severity")
+                x   = s["punishment-severity"].values
+                y   = s[col].values
+                err = s[f"{col}_std"].values if f"{col}_std" in s.columns else np.zeros_like(y)
+                colour = cmap_mech(k / max(len(chosen_R) - 1, 1))
+                line, = ax.plot(x, y, marker="o", markersize=3.2, color=colour,
+                                label=f"R = {R:.2f}", linewidth=1.6)
+                ax.fill_between(x, y - err, y + err,
+                                color=colour, alpha=0.08, linewidth=0)
+                if panel_idx == 0:
+                    legend_handles.append(line)
+                    legend_labels.append(f"R = {R:.2f}")
+            ax.set_xlabel("punishment-severity")
+            ax.set_ylabel(ylab)
+            ax.set_xticks(x_levels)
+            ax.set_xticklabels([f"{v:.2f}" for v in x_levels], fontsize=8)
+
+        fig.legend(
+            legend_handles, legend_labels, title="reporter-protection",
+            loc="lower center", ncol=7, bbox_to_anchor=(0.5, -0.03), fontsize=8
+        )
+        plt.tight_layout(rect=[0, 0.07, 1, 0.93])
+        out = PLOT_FOLDER / variant["out_name"]
+        fig.savefig(out); print(f"  Saved: {out.name}")
+        plt.show()
 
 
 def _plot_exp1_pareto(df):
@@ -466,11 +490,11 @@ def _plot_exp1_pareto(df):
 
     fig, axes = plt.subplots(1, 2, figsize=(14.8, 6.2))
     fig.suptitle(
-        "Experiment 1 – Stakeholder trade-offs across the policy grid\n"
+        "Experiment 1 – Policy trade-offs across the punishment × protection grid\n"
         "(mean over 10 reps, 300 ticks; "
         "size = punishment-severity, colour = reporter-protection; "
         "black edge = Pareto-optimal)",
-        fontsize=12, y=1.02,
+        fontsize=12, y=0.99,
     )
 
     level_vals = np.round(np.arange(0.20, 0.801, 0.05), 2)
@@ -511,15 +535,15 @@ def _plot_exp1_pareto(df):
 
     sc = scatter_pareto(
         axes[0], emp, mgmt,
-        "Share of employees experiencing retaliation →",
-        "Share of employees committing misconduct →",
-        "Management vs employee stakeholders",
+        "Retaliation rate",
+        "Committed misconduct rate",
+        "Committed misconduct vs retaliation",
     )
     scatter_pareto(
         axes[1], reg, mgmt,
-        "Hidden misconduct rate (share undetected) →",
-        "Share of employees committing misconduct →",
-        "Management vs regulator stakeholders",
+        "Hidden misconduct rate (share undetected)",
+        "Committed misconduct rate",
+        "Committed misconduct vs hidden misconduct",
     )
 
     cbar = fig.colorbar(sc, ax=axes, fraction=0.025, pad=0.03)
@@ -539,6 +563,7 @@ def _plot_exp1_pareto(df):
         loc="upper left", labelspacing=0.6, borderpad=0.6, ncol=2, fontsize=7.5
     )
 
+    fig.subplots_adjust(top=0.86, bottom=0.10, wspace=0.18)
     out = PLOT_FOLDER / "exp2_pareto.png"
     fig.savefig(out); print(f"  Saved: {out.name}")
     plt.show()
@@ -553,11 +578,11 @@ def _plot_exp1_archetypes(df):
     """
     panels = [
         ("true_misconduct_rate",
-         "Share of employees committing misconduct",
-         "share of employees"),
+         "Committed misconduct rate",
+         "committed misconduct rate"),
         ("retaliation_rate",
-         "Share of employees experiencing retaliation",
-         "share of employees"),
+         "Retaliation rate",
+         "retaliation rate"),
         ("hidden-misconduct-rate",
          "Hidden misconduct rate",
          "Hidden misconduct rate"),
@@ -653,14 +678,14 @@ EXP2_PARAMS = [
 EXP2_DVS = [
     # (column, row label, unit note)
     ("true_misconduct_rate",
-     "Share of employees\ncommitting misconduct",
-     "share of employees"),
+     "Committed\nmisconduct rate",
+     "committed misconduct rate"),
     ("hidden-misconduct-rate",
      "Hidden misconduct rate",
      "share undetected"),
     ("retaliation_rate",
-     "Share of employees\nexperiencing retaliation",
-     "share of employees"),
+     "Retaliation\nrate",
+     "retaliation rate"),
     ("mean_fear",
      "Mean fear",
      "avg fear level"),
