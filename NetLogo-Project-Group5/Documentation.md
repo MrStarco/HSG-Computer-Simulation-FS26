@@ -33,7 +33,7 @@ Each tick:
 
 On sanction (offender):
 
-- `misconduct-propensity <- clamp01(misconduct-propensity - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5))`
+- `misconduct-propensity <- clamp01(misconduct-propensity - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5))`
 
 On sanction (punishment bystanders):
 
@@ -41,7 +41,7 @@ On sanction (punishment bystanders):
 
 On retaliation (reporter):
 
-- `fear <- clamp01(fear + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))`
+- `fear <- clamp01(fear + learning-rate * (0.2 + 0.8 * punishment-severity) * (1 - reporter-protection))`
 
 On retaliation (retaliation bystanders):
 
@@ -51,7 +51,7 @@ Drift phase:
 
 - if no misconduct this tick: propensity mean-reverts to `initial-misconduct-propensity`
 - if no retaliation this tick: fear mean-reverts to `initial-fear`
-- speed for both channels: `drift-speed`
+- speed for both channels: `baseline-recovery-rate`
 
 ## Hardcoded constants
 
@@ -70,10 +70,10 @@ These values are fixed in code (not sliders):
 - `number-employees` (20..400, step 10, default 250)
 - `initial-misconduct-propensity` (0..1, step 0.01, default 0.30)
 - `initial-fear` (0..1, step 0.01, default 0.35)
-- `punishment-value` (0..1, step 0.01, default 1.00)
+- `punishment-severity` (0..1, step 0.01, default 1.00)
 - `reporter-protection` (0..1, step 0.01, default 0.30)
-- `response-strength` (0..1, step 0.01, default 0.20)
-- `drift-speed` (0.01..0.5, step 0.01, default 0.15)
+- `learning-rate` (0..1, step 0.01, default 0.20)
+- `baseline-recovery-rate` (0.01..0.5, step 0.01, default 0.15)
 
 ## Visual cues
 
@@ -83,7 +83,7 @@ The model provides two color modes. `Event` mode is the default after `setup`: d
 
 Key cumulative metric:
 
-- `hidden-misconduct-rate = (true-misconduct-total - sanctioned-misconduct-total) / true-misconduct-total`
+- `hidden-misconduct-rate = (committed-misconduct-total - punished-misconduct-total) / committed-misconduct-total`
 
 Because sanctioning is automatic after reporting, hidden misconduct tracks unreported cases. The right-side monitors now display only the total stocks (`true`, `sanctioned`, `hidden`, the hidden rate, plus `reported` and `retaliation` event totals) to keep the layout compact; tick-level counts remain calculated for the plots but are no longer shown as individual monitors.
 
@@ -117,10 +117,10 @@ Common baseline values used across experiments:
 - `number-employees = 300`
 - `initial-misconduct-propensity = 0.4`
 - `initial-fear = 0.3`
-- `response-strength = 0.2`
-- `drift-speed = 0.05`
+- `learning-rate = 0.2`
+- `baseline-recovery-rate = 0.05`
 
-`punishment-value` and `reporter-protection` are either stepped (policy grid / pareto) or fixed to `0.5` and `0.3` in one-factor sensitivity experiments.
+`punishment-severity` and `reporter-protection` are either stepped (policy grid / pareto) or fixed to `0.5` and `0.3` in one-factor sensitivity experiments.
 
 ## How to run
 

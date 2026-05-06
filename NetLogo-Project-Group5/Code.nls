@@ -10,14 +10,14 @@
 ;;
 ;; Active Interface sliders:
 ;;   number-employees, initial-misconduct-propensity, initial-fear,
-;;   punishment-value, reporter-protection, response-strength, drift-speed
+;;   punishment-severity, reporter-protection, learning-rate, baseline-recovery-rate
 ;;
 ;; Key behaviour changes:
 ;;   - Sanctioning is AUTOMATIC on every report (no probability gate)
-;;   - punishment-value controls STRENGTH of propensity drop only
+;;   - punishment-severity controls STRENGTH of propensity drop only
 ;;   - Retaliation probability = (1 - reporter-protection)
-;;   - Retaliation strength increases with punishment-value
-;;   - Fear COUPLED with response-strength: rises on retaliation, decays
+;;   - Retaliation strength increases with punishment-severity
+;;   - Fear COUPLED with learning-rate: rises on retaliation, decays
 ;;     slowly every tick without retaliation  (no more global drift)
 ;;   - Two new plots: Per Tick Dynamics + Relative Change (%)
 ;; ============================================================
@@ -31,19 +31,19 @@ globals [
   retaliation-witness-radius
   bystander-effect-factor
   color-mode
-  true-misconduct-total
-  sanctioned-misconduct-total
+  committed-misconduct-total
+  punished-misconduct-total
   reported-events-total
   retaliation-events-total
   hidden-misconduct-rate
   hidden-misconduct-total
-  true-misconduct-this-tick
-  sanctioned-this-tick
+  committed-misconduct-this-tick
+  punished-misconduct-this-tick
   reported-events-this-tick
   retaliation-events-this-tick
   hidden-misconduct-this-tick
   hidden-misconduct-rate-this-tick
-  true-misconduct-prev-tick
+  committed-misconduct-prev-tick
   relative-misconduct-change
 ]
 
@@ -51,11 +51,11 @@ employees-own [
   misconduct-propensity
   fear
   committed-this-tick?
-  retaliated-this-tick?
+  was-retaliated-against-this-tick?
   reported-this-tick?
-  sanctioned-this-tick?
+  was-punished-this-tick?
   retaliation-witnessed-this-tick?
-  sanction-witnessed-this-tick?
+  punishment-witnessed-this-tick?
 ]
 
 to setup
@@ -69,19 +69,19 @@ to setup
   ;; Color mode: "event" (default) or "fear"
   set color-mode "event"
 
-  set true-misconduct-total       0
-  set sanctioned-misconduct-total 0
+  set committed-misconduct-total       0
+  set punished-misconduct-total 0
   set reported-events-total       0
   set retaliation-events-total    0
   set hidden-misconduct-rate      0
   set hidden-misconduct-total     0
-  set true-misconduct-this-tick   0
-  set sanctioned-this-tick        0
+  set committed-misconduct-this-tick   0
+  set punished-misconduct-this-tick        0
   set reported-events-this-tick   0
   set retaliation-events-this-tick 0
   set hidden-misconduct-this-tick 0
   set hidden-misconduct-rate-this-tick 0
-  set true-misconduct-prev-tick   0
+  set committed-misconduct-prev-tick   0
   set relative-misconduct-change  0
 
   create-employees number-employees [
@@ -91,11 +91,11 @@ to setup
     set misconduct-propensity clamp01 (random-normal initial-misconduct-propensity 0.08)
     set fear                  clamp01 (random-normal initial-fear 0.08)
     set committed-this-tick?  false
-    set retaliated-this-tick? false
+    set was-retaliated-against-this-tick? false
     set reported-this-tick?  false
-    set sanctioned-this-tick? false
+    set was-punished-this-tick? false
     set retaliation-witnessed-this-tick? false
-    set sanction-witnessed-this-tick? false
+    set punishment-witnessed-this-tick? false
     recolor-agent
   ]
   reset-ticks
@@ -104,9 +104,9 @@ end
 to go
   if not any? employees [ stop ]
 
-  set true-misconduct-prev-tick true-misconduct-this-tick
-  set true-misconduct-this-tick 0
-  set sanctioned-this-tick      0
+  set committed-misconduct-prev-tick committed-misconduct-this-tick
+  set committed-misconduct-this-tick 0
+  set punished-misconduct-this-tick      0
   set reported-events-this-tick 0
   set retaliation-events-this-tick 0
   set hidden-misconduct-this-tick 0
@@ -142,15 +142,15 @@ end
 to misconduct-phase
   ask employees [
     set committed-this-tick?  false
-    set retaliated-this-tick? false
+    set was-retaliated-against-this-tick? false
     set reported-this-tick? false
-    set sanctioned-this-tick? false
+    set was-punished-this-tick? false
     set retaliation-witnessed-this-tick? false
-    set sanction-witnessed-this-tick? false
+    set punishment-witnessed-this-tick? false
     if random-float 1 < misconduct-propensity [
       set committed-this-tick? true
-      set true-misconduct-this-tick true-misconduct-this-tick + 1
-      set true-misconduct-total     true-misconduct-total     + 1
+      set committed-misconduct-this-tick committed-misconduct-this-tick + 1
+      set committed-misconduct-total     committed-misconduct-total     + 1
     ]
   ]
 end
@@ -177,43 +177,43 @@ to decide-report [offender]
     set reported-events-total reported-events-total + 1
     set reported-events-this-tick reported-events-this-tick + 1
 
-    ;; SANCTIONING: automatic – punishment-value = strength only
-    set sanctioned-this-tick        sanctioned-this-tick        + 1
-    set sanctioned-misconduct-total sanctioned-misconduct-total + 1
+    ;; SANCTIONING: automatic – punishment-severity = strength only
+    set punished-misconduct-this-tick        punished-misconduct-this-tick        + 1
+    set punished-misconduct-total punished-misconduct-total + 1
     ask offender [
-      set sanctioned-this-tick? true
+      set was-punished-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5))
+        - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5))
     ]
     ;; Nearby agents can notice punishment and adapt behavior too.
     ;; Radius 6: organisation actively signals punishment broadly.
     let punishment-witnesses ([other employees in-radius punishment-witness-radius] of offender)
     ask punishment-witnesses [
-      ;; set sanction-witnessed-this-tick? true
+      ;; set punishment-witnessed-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5) * bystander-effect-factor)
+        - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5) * bystander-effect-factor)
     ]
 
     ;; RETALIATION – probability = (1 - reporter-protection)
-    ;; Fear increase is response-strength-coupled + modulated by
-    ;; protection and punishment-value (stronger punishment triggers
+    ;; Fear increase is learning-rate-coupled + modulated by
+    ;; protection and punishment-severity (stronger punishment triggers
     ;; stronger retaliation pressure).
-    ;; Retaliation strength rises with punishment-value
+    ;; Retaliation strength rises with punishment-severity
     let retaliation-prob clamp01 (1 - reporter-protection)
     if random-float 1 < retaliation-prob [
       set retaliation-events-total retaliation-events-total + 1
       set retaliation-events-this-tick retaliation-events-this-tick + 1
-      set retaliated-this-tick? true
+      set was-retaliated-against-this-tick? true
       set fear clamp01 (fear
-        + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))
+        + learning-rate * (0.2 + 0.8 * punishment-severity) * (1 - reporter-protection))
       ;; Nearby agents can notice retaliation and become more fearful too.
       ;; Radius 3: retaliation is covert, same visibility as the original misconduct.
       ask other employees in-radius retaliation-witness-radius [
         ;; set retaliation-witnessed-this-tick? true
         set fear clamp01 (fear
-          + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection) * bystander-effect-factor)
+          + learning-rate * (0.2 + 0.8 * punishment-severity) * (1 - reporter-protection) * bystander-effect-factor)
       ]
     ]
   ]
@@ -224,20 +224,20 @@ to drift-phase
     if not committed-this-tick? [
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        + drift-speed * (initial-misconduct-propensity - misconduct-propensity))
+        + baseline-recovery-rate * (initial-misconduct-propensity - misconduct-propensity))
     ]
-    if not retaliated-this-tick? [
+    if not was-retaliated-against-this-tick? [
       set fear clamp01 (
         fear
-        + drift-speed * (initial-fear - fear))
+        + baseline-recovery-rate * (initial-fear - fear))
     ]
     recolor-agent
     set committed-this-tick?  false
-    set retaliated-this-tick? false
+    set was-retaliated-against-this-tick? false
     set reported-this-tick? false
-    set sanctioned-this-tick? false
+    set was-punished-this-tick? false
     set retaliation-witnessed-this-tick? false
-    set sanction-witnessed-this-tick? false
+    set punishment-witnessed-this-tick? false
   ]
 end
 
@@ -255,39 +255,39 @@ to recolor-agent
     stop
   ]
 
-  ifelse retaliated-this-tick?
+  ifelse was-retaliated-against-this-tick?
   [ set color cyan + 1 ]
   [ ifelse reported-this-tick?
     [ set color blue + 1 ]
-    [ ifelse sanctioned-this-tick?
+    [ ifelse was-punished-this-tick?
       [ set color violet ]
       [ ifelse committed-this-tick?
         [ set color red ]
         [ ;; bystander color highlighting currently disabled
           ;; ifelse retaliation-witnessed-this-tick?
           ;; [ set color cyan + 2 ]
-          ;; [ ifelse sanction-witnessed-this-tick?
+          ;; [ ifelse punishment-witnessed-this-tick?
           ;;   [ set color violet + 2 ]
           ;;   [ recolor-from-fear ] ]
           set color brown + 1 ] ] ] ]
 end
 
 to update-metrics
-  set hidden-misconduct-this-tick (true-misconduct-this-tick - sanctioned-this-tick)
-  ifelse true-misconduct-this-tick > 0
+  set hidden-misconduct-this-tick (committed-misconduct-this-tick - punished-misconduct-this-tick)
+  ifelse committed-misconduct-this-tick > 0
   [ set hidden-misconduct-rate-this-tick
-      hidden-misconduct-this-tick / true-misconduct-this-tick ]
+      hidden-misconduct-this-tick / committed-misconduct-this-tick ]
   [ set hidden-misconduct-rate-this-tick 0 ]
 
-  set hidden-misconduct-total (true-misconduct-total - sanctioned-misconduct-total)
-  ifelse true-misconduct-total > 0
-  [ set hidden-misconduct-rate hidden-misconduct-total / true-misconduct-total ]
+  set hidden-misconduct-total (committed-misconduct-total - punished-misconduct-total)
+  ifelse committed-misconduct-total > 0
+  [ set hidden-misconduct-rate hidden-misconduct-total / committed-misconduct-total ]
   [ set hidden-misconduct-rate 0 ]
 
-  ifelse true-misconduct-prev-tick > 0
+  ifelse committed-misconduct-prev-tick > 0
   [ set relative-misconduct-change
-    ((true-misconduct-this-tick - true-misconduct-prev-tick)
-      / true-misconduct-prev-tick) * 100 ]
+    ((committed-misconduct-this-tick - committed-misconduct-prev-tick)
+      / committed-misconduct-prev-tick) * 100 ]
   [ set relative-misconduct-change 0 ]
 end
 

@@ -11,11 +11,11 @@ Each employee has:
 - `misconduct-propensity` in `[0, 1]`
 - `fear` in `[0, 1]`
 - `committed-this-tick?`
-- `retaliated-this-tick?`
+- `was-retaliated-against-this-tick?`
 - `reported-this-tick?`
-- `sanctioned-this-tick?`
+- `was-punished-this-tick?`
 - `retaliation-witnessed-this-tick?`
-- `sanction-witnessed-this-tick?`
+- `punishment-witnessed-this-tick?`
 
 ### 1.2 Global variables (`globals`)
 
@@ -27,20 +27,20 @@ Each employee has:
   - `bystander-effect-factor`
   - `color-mode` (`"event"` or `"fear"`)
 - Cumulative metrics:
-  - `true-misconduct-total`
-  - `sanctioned-misconduct-total`
+  - `committed-misconduct-total`
+  - `punished-misconduct-total`
   - `reported-events-total`
   - `retaliation-events-total`
   - `hidden-misconduct-total`
   - `hidden-misconduct-rate`
 - Tick metrics:
-  - `true-misconduct-this-tick`
-  - `sanctioned-this-tick`
+  - `committed-misconduct-this-tick`
+  - `punished-misconduct-this-tick`
   - `reported-events-this-tick`
   - `retaliation-events-this-tick`
   - `hidden-misconduct-this-tick`
   - `hidden-misconduct-rate-this-tick`
-  - `true-misconduct-prev-tick`
+  - `committed-misconduct-prev-tick`
   - `relative-misconduct-change`
 
 ### 1.3 Helper reporters
@@ -60,7 +60,7 @@ Each employee has:
 
 Each `go` tick runs:
 
-1. Store previous misconduct level (`true-misconduct-prev-tick`)
+1. Store previous misconduct level (`committed-misconduct-prev-tick`)
 2. Reset per-tick counters
 3. Move employees
 4. Misconduct phase
@@ -96,12 +96,12 @@ Reporting probability:
 
 Reported events are always sanctioned:
 
-- `sanctioned-this-tick += 1`
-- `sanctioned-misconduct-total += 1`
+- `punished-misconduct-this-tick += 1`
+- `punished-misconduct-total += 1`
 
 Offender update:
 
-- `misconduct-propensity <- clamp01(misconduct-propensity - response-strength * (0.3 + 0.7 * punishment-value) * (1.5 * reporter-protection - 0.5))`
+- `misconduct-propensity <- clamp01(misconduct-propensity - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5))`
 
 Punishment bystander update (`radius = 6`):
 
@@ -115,23 +115,23 @@ Retaliation probability:
 
 If retaliation occurs (on the reporting witness):
 
-- `fear <- clamp01(fear + response-strength * (0.2 + 0.8 * punishment-value) * (1 - reporter-protection))`
+- `fear <- clamp01(fear + learning-rate * (0.2 + 0.8 * punishment-severity) * (1 - reporter-protection))`
 
 Retaliation bystander update (`radius = 3`):
 
 - same term multiplied by `bystander-effect-factor`
 
-For retaliation bystanders, only fear is increased; `retaliated-this-tick?` is reserved for the directly affected reporter so that violet highlighting marks direct retaliation events.
+For retaliation bystanders, only fear is increased; `was-retaliated-against-this-tick?` is reserved for the directly affected reporter so that violet highlighting marks direct retaliation events.
 
 ### 4.5 Drift
 
 If no misconduct this tick:
 
-- `misconduct-propensity <- clamp01(misconduct-propensity + drift-speed * (initial-misconduct-propensity - misconduct-propensity))`
+- `misconduct-propensity <- clamp01(misconduct-propensity + baseline-recovery-rate * (initial-misconduct-propensity - misconduct-propensity))`
 
 If no retaliation this tick:
 
-- `fear <- clamp01(fear + drift-speed * (initial-fear - fear))`
+- `fear <- clamp01(fear + baseline-recovery-rate * (initial-fear - fear))`
 
 ## 5) Visual feedback
 
@@ -141,17 +141,17 @@ The `recolor-agent` helper supports two visualization modes. In `event` mode (de
 
 Per tick:
 
-- `hidden-misconduct-this-tick = true-misconduct-this-tick - sanctioned-this-tick`
-- `hidden-misconduct-rate-this-tick = hidden-misconduct-this-tick / true-misconduct-this-tick` if denominator > 0, else 0
+- `hidden-misconduct-this-tick = committed-misconduct-this-tick - punished-misconduct-this-tick`
+- `hidden-misconduct-rate-this-tick = hidden-misconduct-this-tick / committed-misconduct-this-tick` if denominator > 0, else 0
 
 Cumulative:
 
-- `hidden-misconduct-total = true-misconduct-total - sanctioned-misconduct-total`
-- `hidden-misconduct-rate = hidden-misconduct-total / true-misconduct-total` if denominator > 0, else 0
+- `hidden-misconduct-total = committed-misconduct-total - punished-misconduct-total`
+- `hidden-misconduct-rate = hidden-misconduct-total / committed-misconduct-total` if denominator > 0, else 0
 
 Relative change:
 
-- `relative-misconduct-change = ((true-misconduct-this-tick - true-misconduct-prev-tick) / true-misconduct-prev-tick) * 100` if denominator > 0, else 0
+- `relative-misconduct-change = ((committed-misconduct-this-tick - committed-misconduct-prev-tick) / committed-misconduct-prev-tick) * 100` if denominator > 0, else 0
 
 Although the interface no longer exposes the tick-level monitors, these values continue to be calculated every tick to populate the two plots (`Per Tick Misconduct` and `Relative Misconduct Change (%)`).
 
@@ -162,10 +162,10 @@ Although the interface no longer exposes the tick-level monitors, these values c
 | `number-employees` | Population size and event opportunity count |
 | `initial-misconduct-propensity` | Initial value and drift target for propensity |
 | `initial-fear` | Initial value and drift target for fear |
-| `punishment-value` | Scales sanction impact and retaliation fear impact |
+| `punishment-severity` | Scales sanction impact and retaliation fear impact |
 | `reporter-protection` | Raises reporting input; lowers retaliation probability and retaliation fear term |
-| `response-strength` | Magnitude of sanction and retaliation shocks |
-| `drift-speed` | Mean-reversion speed toward initial values |
+| `learning-rate` | Magnitude of sanction and retaliation shocks |
+| `baseline-recovery-rate` | Mean-reversion speed toward initial values |
 
 ## 8) Embedded experiment defaults
 
@@ -173,12 +173,12 @@ The integrated BehaviorSpace experiments use:
 
 - `timeLimit = 300`
 - `repetitions = 10`
-- common constants: `number-employees = 300`, `initial-misconduct-propensity = 0.4`, `initial-fear = 0.3`, `response-strength = 0.2`, `drift-speed = 0.05`
+- common constants: `number-employees = 300`, `initial-misconduct-propensity = 0.4`, `initial-fear = 0.3`, `learning-rate = 0.2`, `baseline-recovery-rate = 0.05`
 
 Policy parameters are either:
 
 - stepped from `0` to `1` in increments of `0.1` (`exp1`, `exp2`), or
-- fixed at `punishment-value = 0.5`, `reporter-protection = 0.3` in one-factor sensitivity experiments (`exp3*`).
+- fixed at `punishment-severity = 0.5`, `reporter-protection = 0.3` in one-factor sensitivity experiments (`exp3*`).
 
 ## 9) Convenience runs
 

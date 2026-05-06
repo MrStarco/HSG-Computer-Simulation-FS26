@@ -540,49 +540,11 @@ go</previewCommands>
         <enumeratedValueSet variable="baseline-recovery-rate">
           <value value="0.05"></value>
         </enumeratedValueSet>
-        <steppedValueSet variable="punishment-severity" first="0" step="0.1" last="1"></steppedValueSet>
-        <steppedValueSet variable="reporter-protection" first="0" step="0.1" last="1"></steppedValueSet>
+        <steppedValueSet variable="punishment-severity" first="0.2" step="0.05" last="0.8"></steppedValueSet>
+        <steppedValueSet variable="reporter-protection" first="0.2" step="0.05" last="0.8"></steppedValueSet>
       </constants>
     </experiment>
-    <experiment name="exp2_stakeholder_pareto" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="300">
-      <setup>setup</setup>
-      <go>go</go>
-      <metrics>
-        <metric>committed-misconduct-total</metric>
-        <metric>punished-misconduct-total</metric>
-        <metric>hidden-misconduct-total</metric>
-        <metric>hidden-misconduct-rate</metric>
-        <metric>reported-events-total</metric>
-        <metric>retaliation-events-total</metric>
-        <metric>committed-misconduct-this-tick</metric>
-        <metric>punished-misconduct-this-tick</metric>
-        <metric>retaliation-events-this-tick</metric>
-        <metric>hidden-misconduct-this-tick</metric>
-        <metric>hidden-misconduct-rate-this-tick</metric>
-        <metric>mean [fear] of employees</metric>
-        <metric>mean [misconduct-propensity] of employees</metric>
-      </metrics>
-      <constants>
-        <enumeratedValueSet variable="number-employees">
-          <value value="300"></value>
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="initial-misconduct-propensity">
-          <value value="0.4"></value>
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="initial-fear">
-          <value value="0.3"></value>
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="learning-rate">
-          <value value="0.2"></value>
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="baseline-recovery-rate">
-          <value value="0.05"></value>
-        </enumeratedValueSet>
-        <steppedValueSet variable="punishment-severity" first="0" step="0.1" last="1"></steppedValueSet>
-        <steppedValueSet variable="reporter-protection" first="0" step="0.1" last="1"></steppedValueSet>
-      </constants>
-    </experiment>
-    <experiment name="exp3a_sens_employees" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
+    <experiment name="exp2a_sens_employees" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
       <setup>setup</setup>
       <go>go</go>
       <metrics>
@@ -625,7 +587,7 @@ go</previewCommands>
         </enumeratedValueSet>
       </constants>
     </experiment>
-    <experiment name="exp3b_sens_init_propensity" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
+    <experiment name="exp2b_sens_init_propensity" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
       <setup>setup</setup>
       <go>go</go>
       <metrics>
@@ -660,7 +622,7 @@ go</previewCommands>
         </enumeratedValueSet>
       </constants>
     </experiment>
-    <experiment name="exp3c_sens_init_fear" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
+    <experiment name="exp2c_sens_init_fear" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
       <setup>setup</setup>
       <go>go</go>
       <metrics>
@@ -695,7 +657,7 @@ go</previewCommands>
         </enumeratedValueSet>
       </constants>
     </experiment>
-    <experiment name="exp3d_sens_response_strength" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
+    <experiment name="exp2d_sens_response_strength" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
       <setup>setup</setup>
       <go>go</go>
       <metrics>
@@ -730,7 +692,7 @@ go</previewCommands>
         </enumeratedValueSet>
       </constants>
     </experiment>
-    <experiment name="exp3e_sens_drift_speed" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
+    <experiment name="exp2e_sens_drift_speed" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
       <setup>setup</setup>
       <go>go</go>
       <metrics>

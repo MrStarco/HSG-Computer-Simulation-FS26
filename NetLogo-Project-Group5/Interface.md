@@ -42,7 +42,7 @@ This document lists the current layout of `Group5_Misconduct_ABM.nlogox` after t
    - Increment: `0.01`
    - Default: `0.35`
 
-4. `punishment-value`
+4. `punishment-severity`
    - Min: `0`
    - Max: `1`
    - Increment: `0.01`
@@ -54,13 +54,13 @@ This document lists the current layout of `Group5_Misconduct_ABM.nlogox` after t
    - Increment: `0.01`
    - Default: `0.30`
 
-6. `response-strength`
+6. `learning-rate`
    - Min: `0`
    - Max: `1`
    - Increment: `0.01`
    - Default: `0.20`
 
-7. `drift-speed`
+7. `baseline-recovery-rate`
    - Min: `0.01`
    - Max: `0.5`
    - Increment: `0.01`
@@ -68,8 +68,8 @@ This document lists the current layout of `Group5_Misconduct_ABM.nlogox` after t
 
 ## 3) Monitors
 
-1. `True misconduct (total)` -> `true-misconduct-total`
-2. `Sanctioned misconduct (total)` -> `sanctioned-misconduct-total`
+1. `True misconduct (total)` -> `committed-misconduct-total`
+2. `Sanctioned misconduct (total)` -> `punished-misconduct-total`
 3. `Hidden misconduct (total)` -> `hidden-misconduct-total`
 4. `Hidden misconduct rate (total)` -> `hidden-misconduct-rate` (precision `3`)
 5. `Reported events (total)` -> `reported-events-total`
@@ -107,9 +107,9 @@ The legend is rendered as a compact note widget in the right column below the to
 - X-axis: `ticks`
 - Y-axis: `events / tick`
 - Pens:
-  - `true (tick)` -> `plot true-misconduct-this-tick`
-  - `sanctioned (tick)` -> `plot sanctioned-this-tick`
-  - `hidden (tick)` -> `plot (true-misconduct-this-tick - sanctioned-this-tick)`
+  - `true (tick)` -> `plot committed-misconduct-this-tick`
+  - `sanctioned (tick)` -> `plot punished-misconduct-this-tick`
+  - `hidden (tick)` -> `plot (committed-misconduct-this-tick - punished-misconduct-this-tick)`
 
 ## 6) Hardcoded constants (not sliders)
 
