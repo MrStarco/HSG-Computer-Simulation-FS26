@@ -316,16 +316,16 @@ def _plot_exp1_heatmaps(df):
     # (column, panel title, colorbar label)
     DVS = [
         ("true_misconduct_rate",
-         "Management cost\n(share of employees committing misconduct)",
+         "Share of employees committing misconduct",
          "share of employees (avg per tick)"),
         ("hidden-misconduct-rate",
-         "Regulator cost\n(hidden misconduct rate)",
+         "Hidden misconduct rate",
          "share of misconduct undetected"),
         ("retaliation_rate",
-         "Employee cost\n(share of employees experiencing retaliation)",
+         "Share of employees experiencing retaliation",
          "share of employees (avg per tick)"),
         ("mean_fear",
-         "Organisational climate\n(mean fear)",
+         "Mean fear",
          "avg fear level (0\u20131)"),
     ]
 
@@ -553,14 +553,14 @@ def _plot_exp1_archetypes(df):
     """
     panels = [
         ("true_misconduct_rate",
-         "Management cost\nShare of employees committing misconduct",
-         "share of employees (avg per tick)"),
+         "Share of employees committing misconduct",
+         "share of employees"),
         ("retaliation_rate",
-         "Employee cost\nShare of employees experiencing retaliation",
-         "share of employees (avg per tick)"),
+         "Share of employees experiencing retaliation",
+         "share of employees"),
         ("hidden-misconduct-rate",
-         "Regulator cost\nHidden misconduct rate",
-         "share of true misconduct undetected"),
+         "Hidden misconduct rate",
+         "Hidden misconduct rate"),
     ]
 
     # Aggregate per archetype
@@ -656,13 +656,13 @@ EXP2_DVS = [
      "Share of employees\ncommitting misconduct",
      "share of employees"),
     ("hidden-misconduct-rate",
-     "Hidden misconduct rate\n(regulator cost)",
+     "Hidden misconduct rate",
      "share undetected"),
     ("retaliation_rate",
      "Share of employees\nexperiencing retaliation",
      "share of employees"),
     ("mean_fear",
-     "Mean fear\n(climate)",
+     "Mean fear",
      "avg fear level"),
 ]
 
