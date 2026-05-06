@@ -328,16 +328,16 @@ def _plot_exp1_heatmaps(df):
     DVS = [
         ("true_misconduct_rate",
          "Committed misconduct rate",
-         "Rate (share of employees per tick)"),
+         "Committed misconduct rate"),
         ("hidden-misconduct-rate",
          "Hidden misconduct rate",
-         "Share of misconduct undetected"),
+         "Hidden misconduct rate"),
         ("retaliation_rate",
          "Retaliation rate",
-         "Rate (share of employees per tick)"),
+         "Retaliation rate"),
         ("mean_fear",
          "Mean fear",
-         "Average fear level (0\u20131)"),
+         "Mean fear"),
     ]
 
     grp   = df.groupby(["punishment-severity", "reporter-protection"])
@@ -541,7 +541,7 @@ def _plot_exp1_pareto(df):
     )
     scatter_pareto(
         axes[1], reg, mgmt,
-        "Hidden misconduct rate (Share undetected)",
+        "Hidden misconduct rate",
         "Committed misconduct rate",
         "Committed misconduct vs hidden misconduct",
     )
