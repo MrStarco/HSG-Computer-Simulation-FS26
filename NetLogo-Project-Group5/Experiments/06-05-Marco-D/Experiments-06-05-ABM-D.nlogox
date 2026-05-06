@@ -186,7 +186,7 @@ to decide-report [offender]
       set was-punished-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5))
+        - learning-rate * punishment-severity * ((punishment-severity + reporter-protection ^ 2) / 2))
     ]
     ;; Nearby agents can notice punishment and adapt behavior too.
     ;; Radius 6: organisation actively signals punishment broadly.
@@ -195,7 +195,7 @@ to decide-report [offender]
       ;; set punishment-witnessed-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5) * bystander-effect-factor)
+        - learning-rate * punishment-severity * ((punishment-severity + reporter-protection ^ 2) / 2) * bystander-effect-factor)
     ]
 
     ;; RETALIATION – probability = (1 - reporter-protection)
