@@ -14,7 +14,7 @@
 ;;
 ;; Key behaviour changes:
 ;;   - Sanctioning is AUTOMATIC on every report (no probability gate)
-;;   - punishment-severity controls STRENGTH of propensity drop only
+;;   - Sanction update uses nonlinear deterrence + backlash (Option F)
 ;;   - Retaliation probability = (1 - reporter-protection)
 ;;   - Retaliation strength increases with punishment-severity
 ;;   - Fear COUPLED with learning-rate: rises on retaliation, decays
@@ -177,14 +177,16 @@ to decide-report [offender]
     set reported-events-total reported-events-total + 1
     set reported-events-this-tick reported-events-this-tick + 1
 
-    ;; SANCTIONING: automatic – punishment-severity = strength only
+    ;; SANCTIONING: automatic with Option F deterrence-backlash dynamics
     set punished-misconduct-this-tick        punished-misconduct-this-tick        + 1
     set punished-misconduct-total punished-misconduct-total + 1
     ask offender [
       set was-punished-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5))
+        - learning-rate * punishment-severity * (
+            reporter-protection * (1 + punishment-severity) / 2
+            - 0.8 * punishment-severity * (1 - reporter-protection)))
     ]
     ;; Nearby agents can notice punishment and adapt behavior too.
     ;; Radius 6: organisation actively signals punishment broadly.
@@ -193,7 +195,9 @@ to decide-report [offender]
       ;; set punishment-witnessed-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
-        - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5) * bystander-effect-factor)
+        - learning-rate * punishment-severity * (
+            reporter-protection * (1 + punishment-severity) / 2
+            - 0.8 * punishment-severity * (1 - reporter-protection)) * bystander-effect-factor)
     ]
 
     ;; RETALIATION – probability = (1 - reporter-protection)

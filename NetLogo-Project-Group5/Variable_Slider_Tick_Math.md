@@ -86,7 +86,7 @@ For each offender, one random witness is selected from employees in radius `3`.
 
 Reporting input:
 
-- `x_report = base-reporting-climate + 0.8 * reporter-protection - fear`
+- `x_report = base-reporting-climate + reporter-protection - fear`
 
 Reporting probability:
 
@@ -101,11 +101,17 @@ Reported events are always sanctioned:
 
 Offender update:
 
-- `misconduct-propensity <- clamp01(misconduct-propensity - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5))`
+- `misconduct-propensity <- clamp01(misconduct-propensity - learning-rate * punishment-severity * (reporter-protection * (1 + punishment-severity) / 2 - 0.8 * punishment-severity * (1 - reporter-protection)))`
 
 Punishment bystander update (`radius = 6`):
 
 - same term multiplied by `bystander-effect-factor`
+
+Interpretation (Option F):
+
+- deterrence channel: `reporter-protection * (1 + punishment-severity) / 2`
+- backlash channel: `0.8 * punishment-severity * (1 - reporter-protection)`
+- net sanction effect = deterrence minus backlash; this permits nonlinear slope changes under low protection
 
 ### 4.4 Retaliation
 

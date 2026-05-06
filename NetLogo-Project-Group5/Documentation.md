@@ -28,16 +28,22 @@ Each tick:
 ## Core equations
 
 - `logistic(x) = 1 / (1 + exp(-5 * x))`
-- `p_report = logistic(base-reporting-climate + 0.8 * reporter-protection - fear)`
+- `p_report = logistic(base-reporting-climate + reporter-protection - fear)`
 - `p_retaliation = clamp01(1 - reporter-protection)`
 
 On sanction (offender):
 
-- `misconduct-propensity <- clamp01(misconduct-propensity - learning-rate * (0.3 + 0.7 * punishment-severity) * (1.5 * reporter-protection - 0.5))`
+- `misconduct-propensity <- clamp01(misconduct-propensity - learning-rate * punishment-severity * (reporter-protection * (1 + punishment-severity) / 2 - 0.8 * punishment-severity * (1 - reporter-protection)))`
 
 On sanction (punishment bystanders):
 
 - same term multiplied by `bystander-effect-factor`
+
+Interpretation of the sanction term (Option F):
+
+- first component: deterrence (`reporter-protection * (1 + punishment-severity) / 2`)
+- second component: low-protection backlash (`0.8 * punishment-severity * (1 - reporter-protection)`)
+- net effect: with medium/high protection, punishment tends to reduce propensity; with very low protection and high punishment, the curve can flatten or partially reverse (fear-trap dynamics)
 
 On retaliation (reporter):
 

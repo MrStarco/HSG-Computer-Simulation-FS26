@@ -119,7 +119,15 @@ The legend is rendered as a compact note widget in the right column below the to
 - `RETALIATION-WITNESS-RADIUS = 3`
 - `BYSTANDER-EFFECT-FACTOR = 0.3`
 
-## 7) Embedded BehaviorSpace experiments
+## 7) Option F sanction dynamics
+
+The current main model uses Option F for sanction learning:
+
+- `misconduct-propensity <- clamp01(misconduct-propensity - learning-rate * punishment-severity * (reporter-protection * (1 + punishment-severity) / 2 - 0.8 * punishment-severity * (1 - reporter-protection)))`
+
+This combines a deterrence channel (protection-weighted) and a backlash channel (strong punishment under low protection), enabling nonlinear policy effects.
+
+## 8) Embedded BehaviorSpace experiments
 
 The integrated model now contains built-in BehaviorSpace experiments:
 
