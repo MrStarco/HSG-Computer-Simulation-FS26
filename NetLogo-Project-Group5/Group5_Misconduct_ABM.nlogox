@@ -2,13 +2,12 @@
 <model version="NetLogo 7.0.3" snapToGrid="false">
   <code><![CDATA[;; ============================================================
 ;; Misconduct ABM — Group 5
-;; University of St. Gallen | Computer Simulation FS26
+;; University of St. Gallen | Using Computer Simulation for Understanding Organizations as Complex Systems FS26
 ;; ============================================================
 ;;
 ;; Research question:
-;;   Under what conditions does stronger punishment reduce
-;;   misconduct, and when does it instead suppress reporting
-;;   and leave more misconduct hidden?
+;;   How do parameters such as punishment severity
+;;   and reporter protection affect misconduct dynamics?
 ;;
 ;; Agent type: employees (breed)
 ;;   Each employee has two continuous state variables:
@@ -16,11 +15,11 @@
 ;;     fear                   [0,1]  — inhibits willingness to report
 ;;
 ;; Hardcoded structural constants (not sliders):
-;;   base-reporting-climate    = 0.1   ; ambient transparency floor in the organization
-;;   observation-radius        = 3     ; patch radius within which misconduct is visible
-;;   punishment-witness-radius = 6     ; broadcast radius of visible punishment events
-;;   retaliation-witness-radius = 3    ; covert signal — same radius as misconduct
-;;   bystander-effect-factor   = 0.3   ; fraction of direct shock received by bystanders
+;;   base-reporting-climate     = 0.1   ; fixed value added to reporting decision calculations
+;;   observation-radius         = 3     ; patch radius within which misconduct is visible
+;;   punishment-witness-radius  = 6     ; broadcast radius of visible punishment events
+;;   retaliation-witness-radius = 3     ; covert signal — same radius as misconduct
+;;   bystander-effect-factor    = 0.3   ; fraction of direct effect received by bystanders
 ;;
 ;; User-controlled sliders:
 ;;   number-employees, initial-misconduct-propensity, initial-fear,
@@ -68,8 +67,6 @@ employees-own [
   was-retaliated-against-this-tick?
   reported-this-tick?
   was-punished-this-tick?
-  retaliation-witnessed-this-tick?  ; tracked but coloring currently disabled
-  punishment-witnessed-this-tick?   ; tracked but coloring currently disabled
 ]
 
 ;; ============================================================
@@ -115,8 +112,6 @@ to setup
     set was-retaliated-against-this-tick? false
     set reported-this-tick?  false
     set was-punished-this-tick? false
-    set retaliation-witnessed-this-tick? false
-    set punishment-witnessed-this-tick? false
     recolor-agent
   ]
   reset-ticks
@@ -171,7 +166,7 @@ end
 ;; ============================================================
 
 ;; Random walk: changes who is within observation radius of whom each tick,
-;; preventing persistent observation cliques
+;; preventing persistent observation groups
 to move-employees
   ask employees [
     rt random 50
@@ -194,8 +189,6 @@ to misconduct-phase
     set was-retaliated-against-this-tick? false
     set reported-this-tick? false
     set was-punished-this-tick? false
-    set retaliation-witnessed-this-tick? false
-    set punishment-witnessed-this-tick? false
     if random-float 1 < misconduct-propensity [
       set committed-this-tick? true
       set committed-misconduct-this-tick committed-misconduct-this-tick + 1
@@ -222,8 +215,8 @@ to observation-and-reporting-phase
   ]
 end
 
-;; Reporting, sanctioning, and retaliation are all resolved inside
-;; decide-report so that they occur atomically per observed event.
+;; Reporting, punishment, and retaliation are all resolved inside
+;; decide-report so that they occur per observed event.
 to decide-report [offender]
   ;; Reporting probability: logistic of (climate + protection - fear)
   ;; Higher fear or lower protection shifts the input negative, reducing P(report)
@@ -237,14 +230,14 @@ to decide-report [offender]
     set reported-events-total reported-events-total + 1
     set reported-events-this-tick reported-events-this-tick + 1
 
-    ;; --- Sanctioning ---
-    ;; Every report triggers an automatic sanction.
-    ;; The propensity update combines a deterrence channel and a backlash channel:
+    ;; --- Punishment ---
+    ;; Every report triggers an automatic punishment.
+    ;; The propensity update combines a deterrence and a backlash:
     ;;   deterrence: reporter-protection * (1 + punishment-severity) / 2
     ;;   backlash:   0.8 * punishment-severity * (1 - reporter-protection)
     ;; Net effect = deterrence - backlash. With high protection, propensity falls;
     ;; under low protection and high severity, the net change can approach zero
-    ;; or partially reverse (fear-trap dynamics).
+    ;; or reverse (fear-trap dynamic).
     set punished-misconduct-this-tick punished-misconduct-this-tick + 1
     set punished-misconduct-total punished-misconduct-total + 1
     ask offender [
@@ -255,12 +248,11 @@ to decide-report [offender]
             reporter-protection * (1 + punishment-severity) / 2
             - 0.8 * punishment-severity * (1 - reporter-protection)))
     ]
-    ;; Bystanders within punishment-witness-radius observe the sanction
+    ;; Bystanders within punishment-witness-radius observe the punishment
     ;; and update their propensity at a reduced rate (bystander-effect-factor).
     ;; The larger radius (6 vs 3) reflects that formal punishment is publicly visible.
     let punishment-witnesses ([other employees in-radius punishment-witness-radius] of offender)
     ask punishment-witnesses [
-      ;; set punishment-witnessed-this-tick? true
       set misconduct-propensity clamp01 (
         misconduct-propensity
         - learning-rate * punishment-severity * (
@@ -271,7 +263,7 @@ to decide-report [offender]
     ;; --- Retaliation ---
     ;; Retaliation probability scales inversely with reporter protection.
     ;; Fear increase is proportional to learning-rate and punishment-severity,
-    ;; because stronger sanctions create stronger retaliation pressure.
+    ;; because stronger punishment create stronger retaliation pressure.
     let retaliation-prob clamp01 (1 - reporter-protection)
     if random-float 1 < retaliation-prob [
       set retaliation-events-total retaliation-events-total + 1
@@ -280,9 +272,8 @@ to decide-report [offender]
       set fear clamp01 (fear
         + learning-rate * (0.2 + 0.8 * punishment-severity) * (1 - reporter-protection))
       ;; Bystanders within retaliation-witness-radius observe the retaliation.
-      ;; Same radius as observation (3) — retaliation is covert, not broadcast.
+      ;; Same radius as observation (3) because retaliation is covert, not public.
       ask other employees in-radius retaliation-witness-radius [
-        ;; set retaliation-witnessed-this-tick? true
         set fear clamp01 (fear
           + learning-rate * (0.2 + 0.8 * punishment-severity) * (1 - reporter-protection) * bystander-effect-factor)
       ]
@@ -296,7 +287,7 @@ end
 
 ;; Agents not directly shocked this tick revert toward their initial values.
 ;; This prevents permanent accumulation of shocks and models the idea that
-;; behavior returns to a cultural baseline when events are absent.
+;; behavior returns to a cultural baseline without events.
 to drift-phase
   ask employees [
     ;; Propensity drifts back only if the agent did not commit this tick
@@ -317,8 +308,6 @@ to drift-phase
     set was-retaliated-against-this-tick? false
     set reported-this-tick? false
     set was-punished-this-tick? false
-    set retaliation-witnessed-this-tick? false
-    set punishment-witnessed-this-tick? false
   ]
 end
 
@@ -337,7 +326,6 @@ end
 
 ;; Event mode priority (highest to lowest):
 ;;   cyan (retaliation) > blue (report) > violet (sanction) > red (misconduct) > brown (none)
-;; Bystander highlighting (cyan+2, violet+2) is implemented but currently disabled.
 to recolor-agent
   if color-mode = "fear" [
     recolor-from-fear
@@ -352,13 +340,7 @@ to recolor-agent
       [ set color violet ]
       [ ifelse committed-this-tick?
         [ set color red ]
-        [ ;; bystander color highlighting currently disabled
-          ;; ifelse retaliation-witnessed-this-tick?
-          ;; [ set color cyan + 2 ]
-          ;; [ ifelse punishment-witnessed-this-tick?
-          ;;   [ set color violet + 2 ]
-          ;;   [ recolor-from-fear ] ]
-          set color brown + 1 ] ] ] ]
+        [ set color brown + 1 ] ] ] ]
 end
 
 ;; ============================================================
@@ -395,11 +377,6 @@ end
 to-report clamp01 [x]
   report max (list 0 (min (list 1 x)))
 end
-
-;; Standard logistic (kept for reference, not used in current model):
-;; to-report logistic [x]
-;;   report 1 / (1 + exp (- x))
-;; end
 
 ;; Steepened sigmoid (factor 5) concentrates the transition in the mid-range
 ;; where reporting decisions are most sensitive to protection and fear.
@@ -453,8 +430,8 @@ end
     <slider x="10" step="10" y="55" max="400" display="number-employees" height="33" min="20" direction="Horizontal" default="250.0" variable="number-employees" width="200" sizeVersion="0"></slider>
     <slider x="10" step="0.01" y="95" max="1" display="initial-misconduct-propensity" height="33" min="0" direction="Horizontal" default="0.3" variable="initial-misconduct-propensity" width="200" sizeVersion="0"></slider>
     <slider x="10" step="0.01" y="135" max="1" display="initial-fear" height="33" min="0" direction="Horizontal" default="0.35" variable="initial-fear" width="200" sizeVersion="0"></slider>
-    <slider x="10" step="0.01" y="175" max="1" display="punishment-severity" height="33" min="0" direction="Horizontal" default="0.61" variable="punishment-severity" width="200" sizeVersion="0"></slider>
-    <slider x="10" step="0.01" y="215" max="1" display="reporter-protection" height="33" min="0" direction="Horizontal" default="0.28" variable="reporter-protection" width="200" sizeVersion="0"></slider>
+    <slider x="10" step="0.01" y="175" max="1" display="punishment-severity" height="33" min="0" direction="Horizontal" default="0.06" variable="punishment-severity" width="200" sizeVersion="0"></slider>
+    <slider x="10" step="0.01" y="215" max="1" display="reporter-protection" height="33" min="0" direction="Horizontal" default="0.6" variable="reporter-protection" width="200" sizeVersion="0"></slider>
     <slider x="10" step="0.01" y="255" max="1" display="learning-rate" height="33" min="0" direction="Horizontal" default="0.2" variable="learning-rate" width="200" sizeVersion="0"></slider>
     <slider x="10" step="0.01" y="295" max="0.5" display="baseline-recovery-rate" height="33" min="0.01" direction="Horizontal" default="0.15" variable="baseline-recovery-rate" width="200" sizeVersion="0"></slider>
     <monitor x="775" precision="17" y="10" height="45" fontSize="11" display="Committed misconduct (total)" width="200" sizeVersion="0">committed-misconduct-total</monitor>
@@ -491,12 +468,12 @@ end
         <update>plot (committed-misconduct-this-tick - punished-misconduct-this-tick)</update>
       </pen>
     </plot>
-    <note x="775" y="354" backgroundDark="-12895429" fontSize="11" width="200" markdown="false" height="177" textColorDark="-1" textColorLight="-16777216" backgroundLight="-9276814">Agent colors - event mode:
+    <note x="775" y="354" backgroundDark="-12895429" fontSize="11" width="200" markdown="false" height="177" textColorDark="-1" textColorLight="-16777216" backgroundLight="-1513240">Agent colors - event mode:
 Red - misconduct committed
 Blue - report submitted
-Violet - offender sanctioned
+Violet - offender punished
 Cyan - retaliation experienced
-Brown - not event this tick
+Brown - no event this tick
 
 Agent colors - fear mode:
 Green - low fear
@@ -507,78 +484,85 @@ Orange - high fear</note>
   </widgets>
   <info>## WHAT IS IT?
 
-This model simulates organizational misconduct in a fixed employee population. It explores the question: **when does stronger punishment reduce true misconduct, and when does it instead suppress reporting and leave more misconduct hidden?**
+This model simulates organizational misconduct with a fixed employee population. It explores the question: **How do different parameters such as punishment severity and reporter protection affect misconduct dynamics?**
 
-Employees may commit misconduct, coworkers may observe and report, every reported case is automatically sanctioned, and retaliation may follow — feeding back into fear and future reporting behaviour. The key tension is between deterrence (punishment discourages misconduct) and fear-trap dynamics (retaliation discourages reporting, so misconduct goes undetected even as sanctions increase).
+Employees may commit misconduct. Coworkers may also observe and report misconduct. Every report results in punishment, but every report can also expose the reporter to retaliation. Managers can only respond to what they see, so they do what look effective: tougher punishment when reports come in. The model is built to explore whether that response actually reduces misconduct or if it instead drives misconduct underground.
+
+The model is inspired by the literature on whistleblowing, organisational silence, and the tension between deterrence and retaliation in organisations.
 
 ## HOW IT WORKS
 
-Each tick represents one abstract time period in the organisation. The sequence is:
+Each agent is an employee, with two private variables: MISCONDUCT-PROPENSITY (the probability of committing misconduct in a given tick) and FEAR (a state that reduces the willingness to report). Both are initialised from a normal distribution around the slider values INITIAL-MISCONDUCT-PROPENSITY and INITIAL-FEAR.
 
-1. **Movement** — employees move locally, changing who can observe whom.
-2. **Misconduct decision** — each employee independently commits misconduct with probability equal to their `misconduct-propensity`.
-3. **Observation** — one random coworker within `observation-radius` (3 patches) is selected as a potential witness.
-4. **Reporting** — the witness decides to report using a logistic function of `base-reporting-climate + reporter-protection − fear`. Higher fear or lower protection reduces reporting probability.
-5. **Sanctioning** — every report triggers an automatic sanction. The offender's `misconduct-propensity` is updated by a deterrence–backlash formula: punishment reduces propensity when reporter protection is high, but this effect is offset by a backlash channel when protection is low. Nearby agents within 6 patches also receive a scaled update (bystander effect).
-6. **Retaliation** — occurs with probability `1 − reporter-protection`. The reporter's `fear` increases proportionally to `learning-rate` and `punishment-severity`. Nearby agents within 3 patches also experience a scaled fear increase (bystander effect).
-7. **Drift** — agents not directly shocked this tick mean-revert toward their initial values at rate `baseline-recovery-rate`.
-8. **Metrics** — per-tick and cumulative counters are updated.
+The model goes through four rules each tick, executed in the following order:
 
-Key outcome variable: `hidden-misconduct-rate = (committed − sanctioned) / committed`
+* **Movement.** Each employee takes a short random step, so the set of potential witnesses around any offender changes from tick to tick.
+* **Misconduct.** Each employee independently commits misconduct with probability equal to their own MISCONDUCT-PROPENSITY.
+* **Observation and reporting.** For each offender, one random coworker within OBSERVATION-RADIUS is selected as a potential witness. The witness reports with probability given by a logistic function of (BASE-REPORTING-CLIMATE + REPORTER-PROTECTION - FEAR). Higher fear or lower protection makes reporting less likely.
+* **Punishment and retaliation.** Every report triggers a punishment. The offender's MISCONDUCT-PROPENSITY is then updated with both deterrence and backlash: when REPORTER-PROTECTION is high, propensity falls; when protection is low and PUNISHMENT-SEVERITY is high, a backlash can offset the deterrence. Bystanders within a PUNISHMENT-WITNESS-RADIUS receive a reduced update (the bystander effect). Also, retaliation occurs with probability (1 - REPORTER-PROTECTION). When retaliation happens, the reporter's FEAR rises in proportion to LEARNING-RATE. Bystanders within a shorter RETALIATION-WITNESS-RADIUS also experience a fear increase at the bystander rate. The retaliation radius is narrower than the punishment radius because retaliation is covert rather than publicly broadcast.
 
-Because sanctioning is automatic after reporting, hidden misconduct equals unreported misconduct. This rate captures whether the enforcement system actually surfaces the misconduct that occurs.
+After these steps, employees who were not directly affected by an event drift slowly back toward their starting values at BASELINE-RECOVERY-RATE. This represents the idea that people's behavior returns to a cultural baseline when nothing new is reinforcing them.
+
+The main output is the HIDDEN-MISCONDUCT-RATE, defined as (committed - punished) / committed. Because punishment follows automatically from reporting, hidden misconduct is the same as unreported misconduct. It demonstrates whether the enforcement system actually captures the misconduct that occurs.
 
 ## HOW TO USE IT
 
-1. Click **setup** to initialise agents with propensity and fear drawn from a normal distribution around the slider values.
-2. Click **go** to run continuously, or **go-50** to advance exactly 50 ticks.
-3. Use **switch color mode** to toggle between event highlighting (default) and fear visualization.
-4. Adjust sliders to explore different policy combinations:
-   - `punishment-severity` — controls sanction strength; also amplifies retaliation fear
-   - `reporter-protection` — raises reporting probability and lowers retaliation risk
-5. Monitor cumulative outcomes on the right panel and tick dynamics in the two plots.
+Use the sliders to set the initial conditions. NUMBER-EMPLOYEES sets the size of the population. INITIAL-MISCONDUCT-PROPENSITY and INITIAL-FEAR set the average starting values for the two agent states.
 
-**For BehaviorSpace experiments:** open `Tools → BehaviorSpace`, select one of the six embedded experiments (`exp1_policy_grid` or `exp2a`–`exp2e`), run it, and export the results as CSV. Place the exported CSV files in the same directory as `data_analysis_script.py` before running the analysis script. Full parameter configurations are documented in the comment block at the end of the Code tab.
+Click SETUP to initialise the population. Click GO to run the simulation continuously, or GO-50 to advance by exactly fifty ticks.
+
+The two policies are the main objects of interest. PUNISHMENT-SEVERITY controls how strongly each sanction reduces an offender's propensity, and also amplifies the fear caused by retaliation, since heavier penalties make retaliation more frightening. REPORTER-PROTECTION lowers the probability of retaliation and thus raises the probability that a witness reports. LEARNING-RATE controls how strongly a single event shifts an agent's propensity or fear, and BASELINE-RECOVERY-RATE controls how quickly unaffected agents drift back to their starting values.
+
+The monitors on the right show cumulative counts of committed, reported, punished, hidden, and retaliation events, along with the average FEAR and MISCONDUCT-PROPENSITY across the population. Two plots track dynamics over time: one shows the tick-over-tick relative change in committed misconduct, and the other shows committed, punished, and hidden events per tick.
+
+The COLOR-MODE button toggles between two visualisations. In event mode, an agent's color shows what happened to them this tick: red for committing misconduct, blue for reporting, violet for being punished, cyan for being retaliated against, and brown for an uneventful tick. In fear mode, color ranges from green (low fear) through yellow to orange (high fear), making the spread of fear across the population visible.
 
 ## THINGS TO NOTICE
 
-- With low `reporter-protection`, retaliation events accumulate, fear rises, and reporting drops — hidden misconduct can increase even as sanctions look high.
-- `punishment-severity` alone cannot suppress misconduct if reporters are deterred by retaliation; the two levers interact.
-- The relative-change plot oscillates around zero at equilibrium. A sustained negative trend indicates that misconduct is declining; a sustained positive trend indicates escalation.
-- In event color mode, cyan agents (retaliation) often cluster near blue agents (reporters) in the same tick — they are frequently the same person.
+Watch the population's colors when REPORTER-PROTECTION is low and PUNISHMENT-SEVERITY is high. The cumulative punished count climbs steadily, which looks like a successful policy. But fear spreads through the population in fear mode, reporting drops, and the HIDDEN-MISCONDUCT-RATE rises. The dashboard shows fewer incidents, while total misconduct is unchanged or even worse.
+
+Compare this with a run at high REPORTER-PROTECTION. Reports come in steadily, fear stays low, and the deterrence can actually work.
 
 ## THINGS TO TRY
 
-1. **Protection sweep** — fix `punishment-severity` at 0.7, increase `reporter-protection` from 0 to 1 and observe `hidden-misconduct-rate`.
-2. **Punishment sweep** — fix `reporter-protection` at 0.3, increase `punishment-severity` from 0 to 1 and watch whether hidden misconduct falls or rises.
-3. **Fear trap** — set `reporter-protection` to 0.05 and run 150 ticks, then raise it to 0.6 and observe the recovery lag in `fear` and reporting.
-4. **Population size** — vary `number-employees` to test whether small and large organisations show qualitatively different dynamics.
+Set PUNISHMENT-SEVERITY to 0.7 and sweep REPORTER-PROTECTION from 0 to 1. At what value of protection does HIDDEN-MISCONDUCT-RATE begin to fall?
 
-## HARDCODED CONSTANTS
+You can also reverse it. Set REPORTER-PROTECTION to 0.3 and sweep PUNISHMENT-SEVERITY from 0 to 1. 
 
-The following values are fixed in the code and not exposed as sliders, to keep the interface focused on the primary policy levers:
+Try the fear trap. Set REPORTER-PROTECTION to 0.05 and run for 150 ticks, watching fear build up. Then pause, raise REPORTER-PROTECTION to 0.6, and continue. How long does it take for fear to subside and reporting to recover? Does the population return to its earlier state, or has the fear left a lasting trace?
 
-| Variable | Value | Purpose |
-|---|---|---|
-| `base-reporting-climate` | 0.1 | Ambient transparency floor; keeps reporting nonzero even without protection |
-| `observation-radius` | 3 patches | Spatial range within which misconduct is visible |
-| `punishment-witness-radius` | 6 patches | Broader broadcast radius for visible punishment events |
-| `retaliation-witness-radius` | 3 patches | Same radius as observation — retaliation is covert |
-| `bystander-effect-factor` | 0.3 | Fraction of direct shock experienced by nearby observers |
+Vary NUMBER-EMPLOYEES to see different effects for small and large organisations.
+
+Hold the two policies fixed and vary INITIAL-FEAR. Does a population that starts more frightened ever catch up to one that starts at ease, or is the headstart permanent?
 
 ## EXTENDING THE MODEL
 
-- Add department structure with local trust or norm variables that evolve separately.
-- Introduce heterogeneous roles (employees, managers, compliance officers) with different observation and reporting probabilities.
-- Add an anonymity mechanism that decouples reporter identity from the reported event.
-- Model compliance backlog or investigation delay between report and sanction.
+A few ideas for extension:
+
+Introduce roles. The current model has one breed of employee. A version with managers, workers, and compliance officers, each with different observation, reporting, and retaliation parameters, could let us study hierarchy.
+
+Add departments. Local morals and norms could evolve independently in each unit, so that some pockets of the organisation could become high-fear areas while others remain healthy.
+
+Add anonymous reporting through whistleblowing channels, sharply weakening the retaliation impact.
+
+## DESIGN CHOICES
+
+We have decided to fix a few structural parameters in the code rather than keeping them as sliders, to keep the interface focused on the two policies. BASE-REPORTING-CLIMATE (0.1) represents a baseline level of reporting, ensuring that reporting remains above zero even when there is no reporter protection. OBSERVATION-RADIUS (3 patches) is the spatial range within which misconduct can be witnessed. PUNISHMENT-WITNESS-RADIUS (6 patches) is the broader range over which punishments are publicly visible. RETALIATION-WITNESS-RADIUS (3 patches) is the narrower range over which retaliation spreads, reflecting that retaliation is covert rather than broadcast. BYSTANDER-EFFECT-FACTOR (0.3) scales the impact of a witnessed event to 30% of the impact felt by the direct target.
+
+## BEHAVIORSPACE EXPERIMENTS
+
+Two experiment classes with a total of six experiments are configured under Tools → BehaviorSpace. The main one, EXP1_POLICY_GRID, sweeps PUNISHMENT-SEVERITY and REPORTER-PROTECTION from 0.2 to 0.8 in steps of 0.05, and is the basis for the central analysis. The range deliberately focuses on the band where the policy interaction is most interesting, rather than the extremes where one side dominates. The experiments EXP2A through EXP2E hold the two policies at moderate values and sweep each remaining parameter individually, as a robustness check and sensitivity analysis. All experiments run for 300 ticks with 10 repetitions. Exported CSV files can be read directly by the included Python analysis script.
+
+## GITHUB PROJECT LINK
+
+https://github.com/MrStarco/HSG-Computer-Simulation-FS26
 
 ## CREDITS AND REFERENCES
 
-Group 5 — *Agent-Based Simulation of Organisational Misconduct*, University of St. Gallen, Computer Simulation FS26.
+Group 5: Agent-Based Simulation of Organisational Misconduct.
+University of St. Gallen, Using Computer Simulation for Understanding Organizations as Complex Systems FS26.
 
-- Wilensky, U. (1999). NetLogo. Center for Connected Learning and Computer-Based Modeling, Northwestern University. http://ccl.northwestern.edu/netlogo/
-- NetLogo User Manual: https://ccl.northwestern.edu/netlogo/docs/</info>
+Wilensky, U. (1999). NetLogo. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL. http://ccl.northwestern.edu/netlogo/</info>
   <turtleShapes>
     <shape name="default" rotatable="true" editableColorIndex="0">
       <polygon color="-1920102913" filled="true" marked="true">
