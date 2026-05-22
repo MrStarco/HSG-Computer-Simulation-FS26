@@ -395,7 +395,7 @@ end
 ;;   learning-rate=0.2, baseline-recovery-rate=0.05
 ;;
 ;; exp1_policy_grid
-;;   2D policy sweep: punishment-severity × reporter-protection (0.0→1.0, step 0.1).
+;;   2D policy sweep: punishment-severity × reporter-protection (0.2→0.8, step 0.05).
 ;;   All other parameters at baseline.
 ;;   Purpose: map how the full policy space affects hidden-misconduct-rate,
 ;;   retaliation events, and mean fear; identify nonlinear and interacting effects.
@@ -658,8 +658,8 @@ go</previewCommands>
         <enumeratedValueSet variable="baseline-recovery-rate">
           <value value="0.05"></value>
         </enumeratedValueSet>
-        <steppedValueSet variable="punishment-severity" first="0" step="0.1" last="1"></steppedValueSet>
-        <steppedValueSet variable="reporter-protection" first="0" step="0.1" last="1"></steppedValueSet>
+        <steppedValueSet variable="punishment-severity" first="0.2" step="0.05" last="0.8"></steppedValueSet>
+        <steppedValueSet variable="reporter-protection" first="0.2" step="0.05" last="0.8"></steppedValueSet>
       </constants>
     </experiment>
     <experiment name="exp2a_sens_employees" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="300">
