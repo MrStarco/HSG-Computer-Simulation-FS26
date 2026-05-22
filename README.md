@@ -10,24 +10,23 @@ How do parameters such as punishment severity and reporter protection affect mis
 ## Model files
 
 
-| File                                                  | Purpose                                                           |
-| ----------------------------------------------------- | ----------------------------------------------------------------- |
-| `NetLogo-Project-Group5/Group5_Misconduct_ABM.nlogox` | Complete model — open this in NetLogo                             |
-| `NetLogo-Project-Group5/data_analysis_jupyter.ipynb`  | Jupyter notebook for analyzing experiment outputs                 |
-| `NetLogo-Project-Group5/data_analysis_script.py`      | Python script for reproducible data analysis and plotting         |
-| `NetLogo-Project-Group5/data_sets/`                   | Input/output CSV datasets used by the analysis workflow           |
-| `NetLogo-Project-Group5/Sample plots/`                | Example figures generated from experiment results                 |
-| `NetLogo-Project-Group5/Additional-Documentation/`    | Supporting model documentation (code, interface, math, and notes) |
+| File                                                  | Purpose                                                   |
+| ----------------------------------------------------- | --------------------------------------------------------- |
+| `NetLogo-Project-Group5/Group5_Misconduct_ABM.nlogox` | Complete model — open this in NetLogo                     |
+| `NetLogo-Project-Group5/data_analysis_jupyter.ipynb`  | Jupyter notebook for analyzing experiment outputs         |
+| `NetLogo-Project-Group5/data_analysis_script.py`      | Python script for reproducible data analysis and plotting |
+| `NetLogo-Project-Group5/data_sets/`                   | Input/output CSV datasets used by the analysis workflow   |
+| `NetLogo-Project-Group5/Sample plots/`                | Example figures generated from experiment results         |
 
 
 ## How to run
 
-1. Open `NetLogo-Project-Group5/Group5_Misconduct_ABM.nlogox` in NetLogo 7.0.3.
+1. Open `Group5_Misconduct_ABM.nlogox`
 2. Click `setup` to initialize agents.
 3. Click `go` to run continuously, or `go-50` to advance exactly 50 ticks.
 4. Use `switch color mode` to toggle between event highlighting and fear visualization.
 5. For experiments: `Tools → BehaviorSpace`, select an experiment, run, export CSV.
-6. Place the exported CSV files in the same directory as `data_analysis_script.py` or a subfolder "data_sets"  before running the analysis script.
+6. Run either the Jupyter notebook or the .py script to analyze the data based on the CSV files in `data_sets`
 
 ## Key sliders
 
@@ -78,3 +77,4 @@ HSG-Computer-Simulation-FS26/
     ├── Sample plots/                       # Output plots from final analysis
     └── Experiments/                        # Archived intermediate experiment runs
 ```
+
