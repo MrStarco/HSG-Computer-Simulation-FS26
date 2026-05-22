@@ -14,8 +14,6 @@ Each employee has:
 - `was-retaliated-against-this-tick?`
 - `reported-this-tick?`
 - `was-punished-this-tick?`
-- `retaliation-witnessed-this-tick?`
-- `punishment-witnessed-this-tick?`
 
 ### 1.2 Global variables (`globals`)
 
@@ -141,7 +139,7 @@ If no retaliation this tick:
 
 ## 5) Visual feedback
 
-The `recolor-agent` helper supports two visualization modes. In `event` mode (default after `setup`), priority is direct retaliation (`cyan`) > direct report (`blue`) > direct sanction (`violet`) > direct misconduct (`red`) > neutral (`brown`). In `fear` mode, colors always follow fear (`green/yellow/orange`) regardless of event flags. The `toggle-color-mode` procedure switches the mode and immediately recolors all agents. Bystander color highlighting is currently commented out (disabled) even though bystander-effect fear dynamics remain in the model. All event flags are one-tick markers and are reset at the end of `drift-phase`, so highlights are short and interpretable.
+The `recolor-agent` helper supports two visualization modes. In `event` mode (default after `setup`), priority is direct retaliation (`cyan`) > direct report (`blue`) > direct sanction (`violet`) > direct misconduct (`red`) > neutral (`brown`). In `fear` mode, colors always follow fear (`green/yellow/orange`) regardless of event flags. The `toggle-color-mode` procedure switches the mode and immediately recolors all agents. All event flags are one-tick markers and are reset at the end of `drift-phase`, so highlights are short and interpretable.
 
 ## 6) Metric definitions
 

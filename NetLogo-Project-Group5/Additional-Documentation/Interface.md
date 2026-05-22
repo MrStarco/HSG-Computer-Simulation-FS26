@@ -46,13 +46,13 @@ This document specifies the Interface tab widgets and their settings for `Group5
    - Min: `0`
    - Max: `1`
    - Increment: `0.01`
-   - Default: `1.00`
+   - Default: `0.06`
 
 5. `reporter-protection`
    - Min: `0`
    - Max: `1`
    - Increment: `0.01`
-   - Default: `0.30`
+   - Default: `0.60`
 
 6. `learning-rate`
    - Min: `0`

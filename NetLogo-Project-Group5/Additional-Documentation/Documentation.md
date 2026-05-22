@@ -76,8 +76,8 @@ These values are fixed in code (not sliders):
 - `number-employees` (20..400, step 10, default 250)
 - `initial-misconduct-propensity` (0..1, step 0.01, default 0.30)
 - `initial-fear` (0..1, step 0.01, default 0.35)
-- `punishment-severity` (0..1, step 0.01, default 1.00)
-- `reporter-protection` (0..1, step 0.01, default 0.30)
+- `punishment-severity` (0..1, step 0.01, default 0.06)
+- `reporter-protection` (0..1, step 0.01, default 0.60)
 - `learning-rate` (0..1, step 0.01, default 0.20)
 - `baseline-recovery-rate` (0.01..0.5, step 0.01, default 0.15)
 
@@ -102,7 +102,7 @@ Plots:
 
 Six experiments are embedded in the model (`Tools → BehaviorSpace`):
 
-- `exp1_policy_grid`: sweeps `punishment-severity × reporter-protection` (0.0 to 1.0, step 0.1) to map the full policy space.
+- `exp1_policy_grid`: sweeps `punishment-severity × reporter-protection` (0.2 to 0.8, step 0.05) to map the policy interaction band where effects are most informative.
 - `exp2a` – `exp2e`: one-factor-at-a-time (OFAT) sensitivity experiments for `number-employees`, `initial-misconduct-propensity`, `initial-fear`, `learning-rate`, and `baseline-recovery-rate` respectively.
 
 All experiments: 10 repetitions, 300 ticks per run. Full parameter ranges are documented in the Code tab.
