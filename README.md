@@ -1,86 +1,77 @@
-# NetLogo Project - Group 5
+# Misconduct ABM — Group 5
 
-Dieses Verzeichnis enthaelt ein lauffaehiges Kernmodell fuer euer Thema **Reporting, Enforcement und Hidden Misconduct** sowie die aufgeteilten Bausteine fuer Code/Interface/Info.
+Agent-based model of organizational misconduct, reporting, and hidden misconduct dynamics.
+Built in NetLogo 7.x. Submitted as part of the Computer Simulation course (FS26) at the University of St. Gallen.
 
-## Projektstruktur
+## Research question
 
-- `Group5_Misconduct_ABM.nlogo`  
-  Vollstaendige NetLogo-Modelldatei (wenn ihr direkt starten wollt).
+When does stronger punishment reduce misconduct, and when does it instead suppress reporting and leave more misconduct hidden?
 
-- `Code.nls`  
-  Reiner NetLogo-Code fuer den **Code Tab**.
+## Model files
 
-- `Interface.md`  
-  Spezifikation aller Interface-Widgets inkl. manueller Schritt-fuer-Schritt-Anleitung.
 
-- `Documentation.md`  
-  Text fuer den **Info Tab** in NetLogo.
+| File                                                  | Purpose                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------- |
+| `NetLogo-Project-Group5/Group5_Misconduct_ABM.nlogox` | Complete model — open this in NetLogo                             |
+| `NetLogo-Project-Group5/data_analysis_jupyter.ipynb`  | Jupyter notebook for analyzing experiment outputs                 |
+| `NetLogo-Project-Group5/data_analysis_script.py`      | Python script for reproducible data analysis and plotting         |
+| `NetLogo-Project-Group5/data_sets/`                   | Input/output CSV datasets used by the analysis workflow           |
+| `NetLogo-Project-Group5/Sample plots/`                | Example figures generated from experiment results                 |
+| `NetLogo-Project-Group5/Additional-Documentation/`    | Supporting model documentation (code, interface, math, and notes) |
 
-## Nutzung in NetLogo
 
-### Option A (empfohlen): Direkt starten
+## How to run
 
-1. NetLogo oeffnen.
-2. `File -> Open...`
-3. `Group5_Misconduct_ABM.nlogo` waehlen.
-4. `setup` klicken, dann `go`.
+1. Open `NetLogo-Project-Group5/Group5_Misconduct_ABM.nlogox` in NetLogo 7.0.3.
+2. Click `setup` to initialize agents.
+3. Click `go` to run continuously, or `go-50` to advance exactly 50 ticks.
+4. Use `switch color mode` to toggle between event highlighting and fear visualization.
+5. For experiments: `Tools → BehaviorSpace`, select an experiment, run, export CSV.
+6. Place the exported CSV files in the same directory as `data_analysis_script.py` or a subfolder "data_sets"  before running the analysis script.
 
-### Option B: Manuell aus Einzeldateien aufbauen
+## Key sliders
 
-1. In NetLogo ein neues Modell erstellen (`File -> New`).
-2. Inhalt von `Code.nls` komplett in den **Code Tab** einfuegen.
-3. Widgets im **Interface Tab** gemass `Interface.md` anlegen.
-4. Inhalt von `Documentation.md` in den **Info Tab** einfuegen.
-5. Speichern (`File -> Save`) als eigene `.nlogo`.
 
-## Typische Team-Experimente
+| Slider                          | Range    | Default | Role                                                  |
+| ------------------------------- | -------- | ------- | ----------------------------------------------------- |
+| `number-employees`              | 20–400   | 250     | Population size                                       |
+| `initial-misconduct-propensity` | 0–1      | 0.30    | Starting propensity and drift target                  |
+| `initial-fear`                  | 0–1      | 0.35    | Starting fear and drift target                        |
+| `punishment-severity`           | 0–1      | 1.00    | Scales sanction and retaliation impacts               |
+| `reporter-protection`           | 0–1      | 0.30    | Raises reporting probability; lowers retaliation risk |
+| `learning-rate`                 | 0–1      | 0.20    | Magnitude of per-event shocks                         |
+| `baseline-recovery-rate`        | 0.01–0.5 | 0.15    | Mean-reversion speed to initial values                |
 
-- `punishment-value` erhoehen/senken und auf `hidden-misconduct-rate` achten.
-- `reporter-protection` variieren und Effekte auf Reporting/Retaliation beobachten.
-- Mehrere Runs mit gleichen Einstellungen vergleichen (stochastisches Modell).
 
-## GitHub-Kurzanleitung fuer Einsteiger
+## Output monitors
 
-### A) Einfach ueber GitHub.com (ohne Terminal)
+- **True misconduct (total)** — cumulative committed events
+- **Sanctioned misconduct (total)** — cumulative punished events
+- **Hidden misconduct (total)** — committed minus sanctioned (= unreported)
+- **Hidden misconduct rate (total)** — hidden / committed
+- **Reported events (total)**, **Retaliation events (total)**
 
-1. Repository auf GitHub oeffnen.
-2. Auf `main` **nicht direkt** arbeiten, sondern neuen Branch erstellen:
-   - Dropdown bei Branch-Name -> neuen Namen eingeben (z. B. `feature/interface-tuning`) -> erstellen.
-3. Datei oeffnen -> Stift-Symbol (`Edit this file`) klicken.
-4. Aenderungen machen.
-5. Unten:
-   - Commit message eintragen (kurz und klar)
-   - `Commit changes` auf den eigenen Branch
-6. `Compare & pull request` klicken.
-7. In der PR kurz schreiben:
-   - Was geaendert?
-   - Warum?
-   - Was sollte Reviewer testen?
-8. Auf Review warten, danach mergen.
+## Plots
 
-### B) Lokal mit Git (Terminal) - Basisablauf
+- **Per Tick Misconduct** — true, sanctioned, and hidden counts per tick
+- **Relative Misconduct Change (%)** — tick-over-tick momentum indicator
 
-```bash
-git clone <repo-url>
-cd <repo-ordner>
-git checkout -b feature/mein-thema
-# Dateien bearbeiten
-git add .
-git commit -m "Add initial misconduct experiment settings"
-git push -u origin feature/mein-thema
+## Repository structure
+
+```
+HSG-Computer-Simulation-FS26/
+├── README.md
+└── NetLogo-Project-Group5/
+    ├── Group5_Misconduct_ABM.nlogox    # Main model file (submit this)
+    ├── Code.nls                         # Source code (also embedded in .nlogox)
+    ├── Documentation.md                 # Info tab text
+    ├── Interface.md                     # Interface specification
+    ├── Variable_Slider_Tick_Math.md     # Mathematical reference
+    └── Experiments/                     # Per-run experiment archives and analysis scripts
 ```
 
-Danach auf GitHub Pull Request erstellen.
+## References
 
-## Gute Team-Regeln (sehr wichtig)
+- Wilensky, U. (1999). NetLogo. Center for Connected Learning and Computer-Based Modeling, Northwestern University. [http://ccl.northwestern.edu/netlogo/](http://ccl.northwestern.edu/netlogo/)
+- NetLogo User Manual: [https://ccl.northwestern.edu/netlogo/docs/](https://ccl.northwestern.edu/netlogo/docs/)
 
-- Kleine, fokussierte Commits statt grosser Sammel-Commits.
-- Sprechende Commit Messages (was/warum).
-- Vor PR kurz lokal testen (`setup`, `go`, Monitors/Plot pruefen).
-- Konflikte frueh loesen: regelmaessig `main` in den Feature-Branch holen.
-- Keine sensiblen Daten committen.
-
-## Quellen
-
-- [NetLogo Tutorial #1](https://docs.netlogo.org/tutorial1)
-- [BIND - Beginner's Interactive NetLogo Dictionary](https://bind.netlogo.org)
