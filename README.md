@@ -5,7 +5,7 @@ Built in NetLogo 7.0.3. Submitted as part of the Computer Simulation course (FS2
 
 ## Research question
 
-When does stronger punishment reduce misconduct, and when does it instead suppress reporting and leave more misconduct hidden?
+How do parameters such as punishment severity and reporter protection affect misconduct dynamics?
 
 ## Model files
 
