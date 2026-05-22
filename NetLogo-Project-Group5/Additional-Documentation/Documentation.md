@@ -39,11 +39,11 @@ On sanction (punishment bystanders):
 
 - same term multiplied by `bystander-effect-factor`
 
-Interpretation of the sanction term (Option F):
+The sanction update combines two opposing channels:
 
-- first component: deterrence (`reporter-protection * (1 + punishment-severity) / 2`)
-- second component: low-protection backlash (`0.8 * punishment-severity * (1 - reporter-protection)`)
-- net effect: with medium/high protection, punishment tends to reduce propensity; with very low protection and high punishment, the curve can flatten or partially reverse (fear-trap dynamics)
+- deterrence channel: `reporter-protection * (1 + punishment-severity) / 2` — punishment reduces propensity more effectively when reporters are protected
+- backlash channel: `0.8 * punishment-severity * (1 - reporter-protection)` — under low protection, high punishment partially offsets the deterrence effect
+- net effect: with sufficient protection, propensity decreases; with very low protection and high severity, the net change approaches zero or partially reverses (fear-trap dynamics)
 
 On retaliation (reporter):
 
@@ -63,13 +63,13 @@ Drift phase:
 
 These values are fixed in code (not sliders):
 
-| Constant | Value |
+| Variable | Value |
 |---|---|
-| `BASE-REPORTING-CLIMATE` | `0.1` |
-| `OBSERVATION-RADIUS` | `3` |
-| `PUNISHMENT-WITNESS-RADIUS` | `6` |
-| `RETALIATION-WITNESS-RADIUS` | `3` |
-| `BYSTANDER-EFFECT-FACTOR` | `0.3` |
+| `base-reporting-climate` | `0.1` |
+| `observation-radius` | `3` |
+| `punishment-witness-radius` | `6` |
+| `retaliation-witness-radius` | `3` |
+| `bystander-effect-factor` | `0.3` |
 
 ## Interface controls (active sliders)
 
@@ -91,47 +91,25 @@ Key cumulative metric:
 
 - `hidden-misconduct-rate = (committed-misconduct-total - punished-misconduct-total) / committed-misconduct-total`
 
-Because sanctioning is automatic after reporting, hidden misconduct tracks unreported cases. The right-side monitors now display only the total stocks (`true`, `sanctioned`, `hidden`, the hidden rate, plus `reported` and `retaliation` event totals) to keep the layout compact; tick-level counts remain calculated for the plots but are no longer shown as individual monitors.
+Because sanctioning is automatic after reporting, hidden misconduct tracks unreported cases. The monitors display cumulative totals: committed misconduct, punished misconduct, hidden misconduct, hidden misconduct rate, reported events, and retaliation events. Tick-level counts are still computed every tick to populate the two plots.
 
-Plots included:
+Plots:
 
-1. `Relative Misconduct Change (%)`
-2. `Per Tick Misconduct`
+1. `Per Tick Misconduct` — committed, punished, and hidden counts per tick
+2. `Relative Misconduct Change (%)` — tick-over-tick momentum indicator
 
-The cumulative dynamics plot was removed to highlight the totals as monitors and keep the plot area focused on the momentum (`relative change`) and flow (`per tick`) dynamics that update every tick.
+## BehaviorSpace experiments
 
-## BehaviorSpace experiments included
+Six experiments are embedded in the model (`Tools → BehaviorSpace`):
 
-Embedded experiments:
+- `exp1_policy_grid`: sweeps `punishment-severity × reporter-protection` (0.0 to 1.0, step 0.1) to map the full policy space.
+- `exp2a` – `exp2e`: one-factor-at-a-time (OFAT) sensitivity experiments for `number-employees`, `initial-misconduct-propensity`, `initial-fear`, `learning-rate`, and `baseline-recovery-rate` respectively.
 
-- `exp1_policy_grid`
-- `exp2_stakeholder_pareto`
-- `exp3a_sens_employees`
-- `exp3b_sens_init_propensity`
-- `exp3c_sens_init_fear`
-- `exp3d_sens_response_strength`
-- `exp3e_sens_drift_speed`
-
-Shared setup:
-
-- `setup`/`go`
-- `timeLimit = 300`
-- `repetitions = 10`
-
-Common baseline values used across experiments:
-
-- `number-employees = 300`
-- `initial-misconduct-propensity = 0.4`
-- `initial-fear = 0.3`
-- `learning-rate = 0.2`
-- `baseline-recovery-rate = 0.05`
-
-`punishment-severity` and `reporter-protection` are either stepped (policy grid / pareto) or fixed to `0.5` and `0.3` in one-factor sensitivity experiments.
+All experiments: 10 repetitions, 300 ticks per run. Full parameter ranges are documented in the Code tab.
 
 ## How to run
 
-1. Open `Group5_Misconduct_ABM.nlogox` in NetLogo 7.x.
-2. Click `setup`, then run `go` or use the new `go-50` button to advance exactly 50 ticks without babysitting the forever button.
-3. Use `switch color mode` (under the run buttons) to toggle between event colors and fear colors.
-4. For experiments, open `Tools -> BehaviorSpace` and choose one integrated experiment.
-5. Export tables as CSV for downstream analysis.
+1. Open `Group5_Misconduct_ABM.nlogox` in NetLogo 7.0.3.
+2. Click `setup`, then `go` (continuous) or `go-50` (exactly 50 ticks).
+3. Use `switch color mode` to toggle between event highlighting and fear visualization.
+4. For experiments: `Tools → BehaviorSpace`, select an experiment, run, export CSV.

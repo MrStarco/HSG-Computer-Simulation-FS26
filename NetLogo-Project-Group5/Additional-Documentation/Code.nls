@@ -1,0 +1,446 @@
+﻿[;; ============================================================
+;; Misconduct ABM — Group 5
+;; University of St. Gallen | Computer Simulation FS26
+;; ============================================================
+;;
+;; Research question:
+;;   Under what conditions does stronger punishment reduce
+;;   misconduct, and when does it instead suppress reporting
+;;   and leave more misconduct hidden?
+;;
+;; Agent type: employees (breed)
+;;   Each employee has two continuous state variables:
+;;     misconduct-propensity  [0,1]  — probability of committing misconduct per tick
+;;     fear                   [0,1]  — inhibits willingness to report
+;;
+;; Hardcoded structural constants (not sliders):
+;;   base-reporting-climate    = 0.1   ; ambient transparency floor in the organization
+;;   observation-radius        = 3     ; patch radius within which misconduct is visible
+;;   punishment-witness-radius = 6     ; broadcast radius of visible punishment events
+;;   retaliation-witness-radius = 3    ; covert signal — same radius as misconduct
+;;   bystander-effect-factor   = 0.3   ; fraction of direct shock received by bystanders
+;;
+;; User-controlled sliders:
+;;   number-employees, initial-misconduct-propensity, initial-fear,
+;;   punishment-severity, reporter-protection, learning-rate, baseline-recovery-rate
+;; ============================================================
+
+breed [employees employee]
+
+;; --- Global state ---
+;; Structural constants (set in setup, never changed during a run)
+;; and all cumulative + per-tick output metrics.
+globals [
+  base-reporting-climate
+  observation-radius
+  punishment-witness-radius
+  retaliation-witness-radius
+  bystander-effect-factor
+  color-mode
+  ;; cumulative counters (total across all ticks)
+  committed-misconduct-total
+  punished-misconduct-total
+  reported-events-total
+  retaliation-events-total
+  hidden-misconduct-total
+  hidden-misconduct-rate
+  ;; per-tick counters (reset each go)
+  committed-misconduct-this-tick
+  punished-misconduct-this-tick
+  reported-events-this-tick
+  retaliation-events-this-tick
+  hidden-misconduct-this-tick
+  hidden-misconduct-rate-this-tick
+  committed-misconduct-prev-tick    ; needed for relative-change calculation
+  relative-misconduct-change
+]
+
+;; --- Agent state ---
+;; Continuous state variables (updated each tick).
+;; Boolean flags are one-tick markers — set during a phase, read for coloring,
+;; and reset at the end of drift-phase.
+employees-own [
+  misconduct-propensity             ; P(commit) this tick
+  fear                              ; reduces P(report)
+  committed-this-tick?
+  was-retaliated-against-this-tick?
+  reported-this-tick?
+  was-punished-this-tick?
+  retaliation-witnessed-this-tick?  ; tracked but coloring currently disabled
+  punishment-witnessed-this-tick?   ; tracked but coloring currently disabled
+]
+
+;; ============================================================
+;; SETUP
+;; ============================================================
+
+to setup
+  clear-all
+
+  ;; Structural constants — fixed by design to reduce slider clutter
+  set base-reporting-climate   0.1
+  set observation-radius       3
+  set punishment-witness-radius 6
+  set retaliation-witness-radius 3
+  set bystander-effect-factor  0.3
+  set color-mode "event"   ; default visualization mode on each fresh run
+
+  ;; Initialize all output counters to zero
+  set committed-misconduct-total       0
+  set punished-misconduct-total 0
+  set reported-events-total       0
+  set retaliation-events-total    0
+  set hidden-misconduct-rate      0
+  set hidden-misconduct-total     0
+  set committed-misconduct-this-tick   0
+  set punished-misconduct-this-tick        0
+  set reported-events-this-tick   0
+  set retaliation-events-this-tick 0
+  set hidden-misconduct-this-tick 0
+  set hidden-misconduct-rate-this-tick 0
+  set committed-misconduct-prev-tick   0
+  set relative-misconduct-change  0
+
+  ;; Create agents — propensity and fear drawn from a normal distribution
+  ;; (SD = 0.08) around the slider values, clamped to [0,1]
+  create-employees number-employees [
+    setxy random-xcor random-ycor
+    set shape "person"
+    set size 1.1
+    set misconduct-propensity clamp01 (random-normal initial-misconduct-propensity 0.08)
+    set fear                  clamp01 (random-normal initial-fear 0.08)
+    set committed-this-tick?  false
+    set was-retaliated-against-this-tick? false
+    set reported-this-tick?  false
+    set was-punished-this-tick? false
+    set retaliation-witnessed-this-tick? false
+    set punishment-witnessed-this-tick? false
+    recolor-agent
+  ]
+  reset-ticks
+end
+
+;; ============================================================
+;; MAIN LOOP
+;; ============================================================
+
+to go
+  if not any? employees [ stop ]
+
+  ;; Carry forward last tick's count for relative-change calculation,
+  ;; then reset all per-tick counters
+  set committed-misconduct-prev-tick committed-misconduct-this-tick
+  set committed-misconduct-this-tick 0
+  set punished-misconduct-this-tick      0
+  set reported-events-this-tick 0
+  set retaliation-events-this-tick 0
+  set hidden-misconduct-this-tick 0
+  set hidden-misconduct-rate-this-tick 0
+
+  ;; Tick sequence — order matters:
+  ;; movement first (mixes neighborhoods), then events, then recovery
+  move-employees
+  misconduct-phase
+  observation-and-reporting-phase
+  drift-phase
+  update-metrics
+  tick
+end
+
+;; Convenience procedure: advances exactly 50 ticks without
+;; holding the forever button
+to go-50
+  repeat 50 [ go ]
+end
+
+;; ============================================================
+;; VISUALIZATION
+;; ============================================================
+
+to toggle-color-mode
+  ifelse color-mode = "event"
+  [ set color-mode "fear" ]
+  [ set color-mode "event" ]
+  ask employees [ recolor-agent ]
+end
+
+;; ============================================================
+;; PHASE 1 — MOVEMENT
+;; ============================================================
+
+;; Random walk: changes who is within observation radius of whom each tick,
+;; preventing persistent observation cliques
+to move-employees
+  ask employees [
+    rt random 50
+    lt random 50
+    fd 1
+  ]
+end
+
+;; ============================================================
+;; PHASE 2 — MISCONDUCT DECISION
+;; ============================================================
+
+;; Each agent independently commits misconduct with probability
+;; equal to their current misconduct-propensity.
+;; Event flags are reset here at the start of each tick.
+to misconduct-phase
+  ask employees [
+    ;; Reset one-tick event flags
+    set committed-this-tick?  false
+    set was-retaliated-against-this-tick? false
+    set reported-this-tick? false
+    set was-punished-this-tick? false
+    set retaliation-witnessed-this-tick? false
+    set punishment-witnessed-this-tick? false
+    if random-float 1 < misconduct-propensity [
+      set committed-this-tick? true
+      set committed-misconduct-this-tick committed-misconduct-this-tick + 1
+      set committed-misconduct-total     committed-misconduct-total     + 1
+    ]
+  ]
+end
+
+;; ============================================================
+;; PHASE 3 — OBSERVATION AND REPORTING
+;; ============================================================
+
+;; For each offender, one random witness within observation-radius is selected.
+;; Single-witness design reflects that reporting is an individual decision —
+;; multiple witnesses do not escalate the probability within one tick.
+to observation-and-reporting-phase
+  ask employees with [committed-this-tick?] [
+    let offender self
+    let witnesses other employees in-radius observation-radius
+    if any? witnesses [
+      let observer one-of witnesses
+      ask observer [ decide-report offender ]
+    ]
+  ]
+end
+
+;; Reporting, sanctioning, and retaliation are all resolved inside
+;; decide-report so that they occur atomically per observed event.
+to decide-report [offender]
+  ;; Reporting probability: logistic of (climate + protection - fear)
+  ;; Higher fear or lower protection shifts the input negative, reducing P(report)
+  let reporting-input (base-reporting-climate
+    + reporter-protection
+    - fear)
+  let reporting-prob logistic reporting-input
+
+  if random-float 1 < reporting-prob [
+    set reported-this-tick? true
+    set reported-events-total reported-events-total + 1
+    set reported-events-this-tick reported-events-this-tick + 1
+
+    ;; --- Sanctioning ---
+    ;; Every report triggers an automatic sanction.
+    ;; The propensity update combines a deterrence channel and a backlash channel:
+    ;;   deterrence: reporter-protection * (1 + punishment-severity) / 2
+    ;;   backlash:   0.8 * punishment-severity * (1 - reporter-protection)
+    ;; Net effect = deterrence - backlash. With high protection, propensity falls;
+    ;; under low protection and high severity, the net change can approach zero
+    ;; or partially reverse (fear-trap dynamics).
+    set punished-misconduct-this-tick punished-misconduct-this-tick + 1
+    set punished-misconduct-total punished-misconduct-total + 1
+    ask offender [
+      set was-punished-this-tick? true
+      set misconduct-propensity clamp01 (
+        misconduct-propensity
+        - learning-rate * punishment-severity * (
+            reporter-protection * (1 + punishment-severity) / 2
+            - 0.8 * punishment-severity * (1 - reporter-protection)))
+    ]
+    ;; Bystanders within punishment-witness-radius observe the sanction
+    ;; and update their propensity at a reduced rate (bystander-effect-factor).
+    ;; The larger radius (6 vs 3) reflects that formal punishment is publicly visible.
+    let punishment-witnesses ([other employees in-radius punishment-witness-radius] of offender)
+    ask punishment-witnesses [
+      ;; set punishment-witnessed-this-tick? true
+      set misconduct-propensity clamp01 (
+        misconduct-propensity
+        - learning-rate * punishment-severity * (
+            reporter-protection * (1 + punishment-severity) / 2
+            - 0.8 * punishment-severity * (1 - reporter-protection)) * bystander-effect-factor)
+    ]
+
+    ;; --- Retaliation ---
+    ;; Retaliation probability scales inversely with reporter protection.
+    ;; Fear increase is proportional to learning-rate and punishment-severity,
+    ;; because stronger sanctions create stronger retaliation pressure.
+    let retaliation-prob clamp01 (1 - reporter-protection)
+    if random-float 1 < retaliation-prob [
+      set retaliation-events-total retaliation-events-total + 1
+      set retaliation-events-this-tick retaliation-events-this-tick + 1
+      set was-retaliated-against-this-tick? true
+      set fear clamp01 (fear
+        + learning-rate * (0.2 + 0.8 * punishment-severity) * (1 - reporter-protection))
+      ;; Bystanders within retaliation-witness-radius observe the retaliation.
+      ;; Same radius as observation (3) — retaliation is covert, not broadcast.
+      ask other employees in-radius retaliation-witness-radius [
+        ;; set retaliation-witnessed-this-tick? true
+        set fear clamp01 (fear
+          + learning-rate * (0.2 + 0.8 * punishment-severity) * (1 - reporter-protection) * bystander-effect-factor)
+      ]
+    ]
+  ]
+end
+
+;; ============================================================
+;; PHASE 4 — DRIFT (mean-reversion)
+;; ============================================================
+
+;; Agents not directly shocked this tick revert toward their initial values.
+;; This prevents permanent accumulation of shocks and models the idea that
+;; behavior returns to a cultural baseline when events are absent.
+to drift-phase
+  ask employees [
+    ;; Propensity drifts back only if the agent did not commit this tick
+    if not committed-this-tick? [
+      set misconduct-propensity clamp01 (
+        misconduct-propensity
+        + baseline-recovery-rate * (initial-misconduct-propensity - misconduct-propensity))
+    ]
+    ;; Fear drifts back only if the agent was not retaliated against this tick
+    if not was-retaliated-against-this-tick? [
+      set fear clamp01 (
+        fear
+        + baseline-recovery-rate * (initial-fear - fear))
+    ]
+    recolor-agent
+    ;; Reset all one-tick event flags for the next tick
+    set committed-this-tick?  false
+    set was-retaliated-against-this-tick? false
+    set reported-this-tick? false
+    set was-punished-this-tick? false
+    set retaliation-witnessed-this-tick? false
+    set punishment-witnessed-this-tick? false
+  ]
+end
+
+;; ============================================================
+;; VISUALIZATION HELPERS
+;; ============================================================
+
+;; Fear mode: three color bands mapped to low / medium / high fear
+to recolor-from-fear
+  ifelse fear < 0.33
+  [ set color green + 1 ]
+  [ ifelse fear < 0.66
+    [ set color yellow - 2 ]
+    [ set color orange + 1 ] ]
+end
+
+;; Event mode priority (highest to lowest):
+;;   cyan (retaliation) > blue (report) > violet (sanction) > red (misconduct) > brown (none)
+;; Bystander highlighting (cyan+2, violet+2) is implemented but currently disabled.
+to recolor-agent
+  if color-mode = "fear" [
+    recolor-from-fear
+    stop
+  ]
+
+  ifelse was-retaliated-against-this-tick?
+  [ set color cyan + 1 ]
+  [ ifelse reported-this-tick?
+    [ set color blue + 1 ]
+    [ ifelse was-punished-this-tick?
+      [ set color violet ]
+      [ ifelse committed-this-tick?
+        [ set color red ]
+        [ ;; bystander color highlighting currently disabled
+          ;; ifelse retaliation-witnessed-this-tick?
+          ;; [ set color cyan + 2 ]
+          ;; [ ifelse punishment-witnessed-this-tick?
+          ;;   [ set color violet + 2 ]
+          ;;   [ recolor-from-fear ] ]
+          set color brown + 1 ] ] ] ]
+end
+
+;; ============================================================
+;; METRICS UPDATE
+;; ============================================================
+
+to update-metrics
+  ;; Per-tick hidden misconduct
+  set hidden-misconduct-this-tick (committed-misconduct-this-tick - punished-misconduct-this-tick)
+  ifelse committed-misconduct-this-tick > 0
+  [ set hidden-misconduct-rate-this-tick
+      hidden-misconduct-this-tick / committed-misconduct-this-tick ]
+  [ set hidden-misconduct-rate-this-tick 0 ]
+
+  ;; Cumulative hidden misconduct
+  set hidden-misconduct-total (committed-misconduct-total - punished-misconduct-total)
+  ifelse committed-misconduct-total > 0
+  [ set hidden-misconduct-rate hidden-misconduct-total / committed-misconduct-total ]
+  [ set hidden-misconduct-rate 0 ]
+
+  ;; Relative tick-over-tick change (%) — zero if previous tick had no misconduct
+  ifelse committed-misconduct-prev-tick > 0
+  [ set relative-misconduct-change
+    ((committed-misconduct-this-tick - committed-misconduct-prev-tick)
+      / committed-misconduct-prev-tick) * 100 ]
+  [ set relative-misconduct-change 0 ]
+end
+
+;; ============================================================
+;; HELPER REPORTERS
+;; ============================================================
+
+;; Clamps any value to [0, 1]
+to-report clamp01 [x]
+  report max (list 0 (min (list 1 x)))
+end
+
+;; Standard logistic (kept for reference, not used in current model):
+;; to-report logistic [x]
+;;   report 1 / (1 + exp (- x))
+;; end
+
+;; Steepened sigmoid (factor 5) concentrates the transition in the mid-range
+;; where reporting decisions are most sensitive to protection and fear.
+to-report logistic [x]
+  report 1 / (1 + exp (- 5 * x))
+end
+
+;; ============================================================
+;; BehaviorSpace Experiments (embedded in Tools → BehaviorSpace)
+;; ============================================================
+;;
+;; All experiments: setup="setup", go="go", timeLimit=300, repetitions=10
+;;
+;; Shared baseline (all experiments):
+;;   number-employees=300, initial-misconduct-propensity=0.4, initial-fear=0.3,
+;;   learning-rate=0.2, baseline-recovery-rate=0.05
+;;
+;; exp1_policy_grid
+;;   2D policy sweep: punishment-severity × reporter-protection (0.0→1.0, step 0.1).
+;;   All other parameters at baseline.
+;;   Purpose: map how the full policy space affects hidden-misconduct-rate,
+;;   retaliation events, and mean fear; identify nonlinear and interacting effects.
+;;
+;; Sensitivity Analysis:
+;; Fixed across all exp2* runs: punishment-severity=0.5, reporter-protection=0.3.
+;;
+;; exp2a_sens_employees
+;;   Varies number-employees: [50, 100, 150, 200, 250, 300, 400] (7 values, 70 runs).
+;;   Tests model robustness to population size.
+;;
+;; exp2b_sens_init_propensity
+;;   Varies initial-misconduct-propensity: 0.10→0.65, step 0.05 (12 values, 120 runs).
+;;   Tests sensitivity to the starting level of misconduct culture.
+;;
+;; exp2c_sens_init_fear
+;;   Varies initial-fear: 0.05→0.65, step 0.05 (13 values, 130 runs).
+;;   Tests sensitivity to the starting level of organizational fear.
+;;
+;; exp2d_sens_response_strength
+;;   Varies learning-rate: 0.05→0.50, step 0.05 (10 values, 100 runs).
+;;   Tests how the speed of behavioral updating affects outcomes.
+;;
+;; exp2e_sens_drift_speed
+;;   Varies baseline-recovery-rate: 0.03→0.33, step 0.03 (11 values, 110 runs).
+;;   Tests how the speed of mean-reversion (organizational memory) affects outcomes.
+;; ============================================================

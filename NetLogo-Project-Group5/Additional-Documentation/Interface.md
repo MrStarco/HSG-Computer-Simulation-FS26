@@ -1,6 +1,6 @@
 # Interface Specification (NetLogo Interface Tab)
 
-This document lists the current layout of `Group5_Misconduct_ABM.nlogox` after the latest interface refresh. The left column contains sliders with the control buttons directly underneath (including a color-mode switch), the right column hosts total monitors with the legend below them, and the bottom-right area shows the two dedicated plots.
+This document specifies the Interface tab widgets and their settings for `Group5_Misconduct_ABM.nlogox`. The left column contains sliders with the control buttons directly underneath (including a color-mode switch), the right column hosts total monitors with the legend below them, and the bottom-right area shows the two dedicated plots.
 
 ## 1) Buttons
 
@@ -68,14 +68,14 @@ This document lists the current layout of `Group5_Misconduct_ABM.nlogox` after t
 
 ## 3) Monitors
 
-1. `True misconduct (total)` -> `committed-misconduct-total`
-2. `Sanctioned misconduct (total)` -> `punished-misconduct-total`
+1. `Committed misconduct (total)` -> `committed-misconduct-total`
+2. `Punished misconduct (total)` -> `punished-misconduct-total`
 3. `Hidden misconduct (total)` -> `hidden-misconduct-total`
 4. `Hidden misconduct rate (total)` -> `hidden-misconduct-rate` (precision `3`)
 5. `Reported events (total)` -> `reported-events-total`
 6. `Retaliation events (total)` -> `retaliation-events-total`
 
-Tick-level monitors were removed to keep the sidebar focused on cumulative totals—those per-tick values still feed the plots.
+The sidebar displays cumulative totals only; per-tick values are still computed internally and feed the plots.
 
 ## 4) Color semantics
 
@@ -90,7 +90,7 @@ Color mode defaults to `event` on each `setup`. In `event` mode, agent colors ar
 
 When switched to `fear` mode, all agents are colored by fear only (`green/yellow/orange`), regardless of current event flags.
 
-The legend is rendered as a compact note widget in the right column below the total monitors, aligned to the same area previously used by the old legend block.
+The legend is rendered as a compact note widget in the right column below the total monitors.
 
 ## 5) Plots
 
@@ -107,45 +107,26 @@ The legend is rendered as a compact note widget in the right column below the to
 - X-axis: `ticks`
 - Y-axis: `events / tick`
 - Pens:
-  - `true (tick)` -> `plot committed-misconduct-this-tick`
-  - `sanctioned (tick)` -> `plot punished-misconduct-this-tick`
+  - `committed (tick)` -> `plot committed-misconduct-this-tick`
+  - `punished (tick)` -> `plot punished-misconduct-this-tick`
   - `hidden (tick)` -> `plot (committed-misconduct-this-tick - punished-misconduct-this-tick)`
 
 ## 6) Hardcoded constants (not sliders)
 
-- `BASE-REPORTING-CLIMATE = 0.1`
-- `OBSERVATION-RADIUS = 3`
-- `PUNISHMENT-WITNESS-RADIUS = 6`
-- `RETALIATION-WITNESS-RADIUS = 3`
-- `BYSTANDER-EFFECT-FACTOR = 0.3`
+- `base-reporting-climate = 0.1`
+- `observation-radius = 3`
+- `punishment-witness-radius = 6`
+- `retaliation-witness-radius = 3`
+- `bystander-effect-factor = 0.3`
 
-## 7) Option F sanction dynamics
+## 7) Sanction update dynamics
 
-The current main model uses Option F for sanction learning:
+Sanction update formula:
 
 - `misconduct-propensity <- clamp01(misconduct-propensity - learning-rate * punishment-severity * (reporter-protection * (1 + punishment-severity) / 2 - 0.8 * punishment-severity * (1 - reporter-protection)))`
 
-This combines a deterrence channel (protection-weighted) and a backlash channel (strong punishment under low protection), enabling nonlinear policy effects.
+This combines a deterrence channel (protection-weighted) and a backlash channel (high punishment under low protection), enabling nonlinear policy effects. See Code tab for full derivation.
 
-## 8) Embedded BehaviorSpace experiments
+## 8) BehaviorSpace experiments
 
-The integrated model now contains built-in BehaviorSpace experiments:
-
-- `exp1_policy_grid`
-- `exp2_stakeholder_pareto`
-- `exp3a_sens_employees`
-- `exp3b_sens_init_propensity`
-- `exp3c_sens_init_fear`
-- `exp3d_sens_response_strength`
-- `exp3e_sens_drift_speed`
-
-Shared settings:
-
-- `setup`: `setup`
-- `go`: `go`
-- `timeLimit`: `300`
-- `repetitions`: `10`
-
-Special case:
-
-- `exp2_stakeholder_pareto` uses `runMetricsEveryStep = true`.
+Six experiments are embedded in the model (`Tools → BehaviorSpace`): `exp1_policy_grid` (2D policy sweep) and `exp2a`–`exp2e` (one-factor-at-a-time sensitivity). For full parameter configurations, see the comment block at the end of the Code tab.

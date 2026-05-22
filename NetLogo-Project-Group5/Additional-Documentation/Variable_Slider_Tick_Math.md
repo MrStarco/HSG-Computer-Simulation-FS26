@@ -50,11 +50,11 @@ Each employee has:
 
 ## 2) Hardcoded constants
 
-- `BASE-REPORTING-CLIMATE = 0.1`
-- `OBSERVATION-RADIUS = 3`
-- `PUNISHMENT-WITNESS-RADIUS = 6`
-- `RETALIATION-WITNESS-RADIUS = 3`
-- `BYSTANDER-EFFECT-FACTOR = 0.3`
+- `base-reporting-climate = 0.1`
+- `observation-radius = 3`
+- `punishment-witness-radius = 6`
+- `retaliation-witness-radius = 3`
+- `bystander-effect-factor = 0.3`
 
 ## 3) Tick sequence
 
@@ -107,11 +107,11 @@ Punishment bystander update (`radius = 6`):
 
 - same term multiplied by `bystander-effect-factor`
 
-Interpretation (Option F):
+The sanction update combines two opposing channels:
 
-- deterrence channel: `reporter-protection * (1 + punishment-severity) / 2`
-- backlash channel: `0.8 * punishment-severity * (1 - reporter-protection)`
-- net sanction effect = deterrence minus backlash; this permits nonlinear slope changes under low protection
+- deterrence channel: `reporter-protection * (1 + punishment-severity) / 2` — reduces misconduct propensity more when protection is high
+- backlash channel: `0.8 * punishment-severity * (1 - reporter-protection)` — counteracts deterrence under low protection
+- net effect: deterrence minus backlash; produces nonlinear policy outcomes depending on the protection level
 
 ### 4.4 Retaliation
 
@@ -127,7 +127,7 @@ Retaliation bystander update (`radius = 3`):
 
 - same term multiplied by `bystander-effect-factor`
 
-For retaliation bystanders, only fear is increased; `was-retaliated-against-this-tick?` is reserved for the directly affected reporter so that violet highlighting marks direct retaliation events.
+For retaliation bystanders, only fear is increased; `was-retaliated-against-this-tick?` is reserved for the directly affected reporter so that cyan highlighting marks direct retaliation events.
 
 ### 4.5 Drift
 
@@ -159,7 +159,7 @@ Relative change:
 
 - `relative-misconduct-change = ((committed-misconduct-this-tick - committed-misconduct-prev-tick) / committed-misconduct-prev-tick) * 100` if denominator > 0, else 0
 
-Although the interface no longer exposes the tick-level monitors, these values continue to be calculated every tick to populate the two plots (`Per Tick Misconduct` and `Relative Misconduct Change (%)`).
+Tick-level values are computed every tick to populate the two plots (`Per Tick Misconduct` and `Relative Misconduct Change (%)`) but are not shown as individual monitors in the interface.
 
 ## 7) Slider -> direct mathematical role
 
@@ -173,19 +173,10 @@ Although the interface no longer exposes the tick-level monitors, these values c
 | `learning-rate` | Magnitude of sanction and retaliation shocks |
 | `baseline-recovery-rate` | Mean-reversion speed toward initial values |
 
-## 8) Embedded experiment defaults
+## 8) BehaviorSpace experiments
 
-The integrated BehaviorSpace experiments use:
+Six experiments are embedded in the model: `exp1_policy_grid` (2D policy sweep) and `exp2a`–`exp2e` (OFAT sensitivity). For full parameter configurations and descriptions, see the comment block at the end of the Code tab.
 
-- `timeLimit = 300`
-- `repetitions = 10`
-- common constants: `number-employees = 300`, `initial-misconduct-propensity = 0.4`, `initial-fear = 0.3`, `learning-rate = 0.2`, `baseline-recovery-rate = 0.05`
+## 9) Convenience procedure
 
-Policy parameters are either:
-
-- stepped from `0` to `1` in increments of `0.1` (`exp1`, `exp2`), or
-- fixed at `punishment-severity = 0.5`, `reporter-protection = 0.3` in one-factor sensitivity experiments (`exp3*`).
-
-## 9) Convenience runs
-
-The new `go-50` procedure repeats `go` exactly 50 times to quickly scan short runs without manually stopping the forever button. It simply encapsulates `repeat 50 [ go ]` and relies on the same tick-level bookkeeping and coloring logic described above.
+`go-50` repeats `go` exactly 50 times (`repeat 50 [ go ]`), providing a fixed-length run without manually stopping the forever button. It uses the same tick-level bookkeeping and coloring logic as the standard `go` procedure.

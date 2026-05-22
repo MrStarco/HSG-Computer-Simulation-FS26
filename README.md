@@ -1,7 +1,7 @@
 # Misconduct ABM — Group 5
 
 Agent-based model of organizational misconduct, reporting, and hidden misconduct dynamics.
-Built in NetLogo 7.x. Submitted as part of the Computer Simulation course (FS26) at the University of St. Gallen.
+Built in NetLogo 7.0.3. Submitted as part of the Computer Simulation course (FS26) at the University of St. Gallen.
 
 ## Research question
 
@@ -45,15 +45,15 @@ When does stronger punishment reduce misconduct, and when does it instead suppre
 
 ## Output monitors
 
-- **True misconduct (total)** — cumulative committed events
-- **Sanctioned misconduct (total)** — cumulative punished events
+- **Committed misconduct (total)** — cumulative committed events
+- **Punished misconduct (total)** — cumulative punished events
 - **Hidden misconduct (total)** — committed minus sanctioned (= unreported)
 - **Hidden misconduct rate (total)** — hidden / committed
 - **Reported events (total)**, **Retaliation events (total)**
 
 ## Plots
 
-- **Per Tick Misconduct** — true, sanctioned, and hidden counts per tick
+- **Per Tick Misconduct** — committed, punished, and hidden counts per tick
 - **Relative Misconduct Change (%)** — tick-over-tick momentum indicator
 
 ## Repository structure
@@ -61,17 +61,20 @@ When does stronger punishment reduce misconduct, and when does it instead suppre
 ```
 HSG-Computer-Simulation-FS26/
 ├── README.md
+├── Context/
+│   ├── Lecture-content/                          # Course lecture slides (reference)
+│   ├── Presentation-Slides/                      # Group 5 presentation decks
+│   └── Additional-Justification-and-Documentation/  # Parameter justification and notes
 └── NetLogo-Project-Group5/
-    ├── Group5_Misconduct_ABM.nlogox    # Main model file (submit this)
-    ├── Code.nls                         # Source code (also embedded in .nlogox)
-    ├── Documentation.md                 # Info tab text
-    ├── Interface.md                     # Interface specification
-    ├── Variable_Slider_Tick_Math.md     # Mathematical reference
-    └── Experiments/                     # Per-run experiment archives and analysis scripts
+    ├── Group5_Misconduct_ABM.nlogox        # Main model file (submit this)
+    ├── data_analysis_script.py             # Data analysis script (legacy)
+    ├── data_analysis_jupyter.ipynb         # Data analysis notebook (legacy)
+    ├── Additional-Documentation/
+    │   ├── Code.nls                        # Source code reference
+    │   ├── Documentation.md                # Info tab text
+    │   ├── Interface.md                    # Interface specification
+    │   └── Variable_Slider_Tick_Math.md    # Mathematical reference
+    ├── data_sets/                          # BehaviorSpace CSV exports (final run)
+    ├── Sample plots/                       # Output plots from final analysis
+    └── Experiments/                        # Archived intermediate experiment runs
 ```
-
-## References
-
-- Wilensky, U. (1999). NetLogo. Center for Connected Learning and Computer-Based Modeling, Northwestern University. [http://ccl.northwestern.edu/netlogo/](http://ccl.northwestern.edu/netlogo/)
-- NetLogo User Manual: [https://ccl.northwestern.edu/netlogo/docs/](https://ccl.northwestern.edu/netlogo/docs/)
-
